@@ -1,0 +1,7 @@
+
+#~### Diego 
+postgresql://carga:g30qub1dy@138.100.138.146:5432
+C:\Users\madru\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\osgeo\ogr2ogr.exe
+#### Tomas
+postgresql://carga:g30qub1dy@138.100.138.146:5432
+C:\\Users\\GeoQuBiDy\\AppData\\Local\\Programs\\Python\\Python310\\Lib\\site-packages\\osgeo\\ogr2ogr.exe

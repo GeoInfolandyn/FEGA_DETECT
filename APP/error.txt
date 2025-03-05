@@ -1,0 +1,1 @@
+Command '['C:\\Users\\madru\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python311\\site-packages\\osgeo\\ogr2ogr.exe', '-f', 'FileGDB', '-nlt', 'MULTIPOLYGON', 'D:/TOMAS/pruebas_fegapp\\CRONO_6_6.gdb', 'D:/TOMAS/pruebas_fegapp\\6.gpkg']' returned non-zero exit status 1.

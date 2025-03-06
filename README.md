@@ -64,10 +64,6 @@ Código principal que integra todos los algoritmos dentro de una interfaz gráfi
 ### Procesamiento de índices Sentinel-2
 ![Interfaz Índices](descarga.png)
 
-- Esta pestaña abre la interfaz gráfica de la descarga de series temporales.
-- Se debe configurar correctamente antes de ejecutar la aplicación.
-- Permite seleccionar directorios, provincias y opcionalmente un archivo shapefile.
-- Se definen los intervalos de fechas de estudio para la generación de la cronología.
 - Se seleccionan las fechas de inicio y fin del período de descarga.
 - Permite elegir el índice espectral deseado (NDVI, EVI, etc.).
 - Se selecciona la resolución espacial de descarga (10, 20 o 60 m).

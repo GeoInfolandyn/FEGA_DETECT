@@ -31,12 +31,8 @@ Contiene la información necesaria para el correcto funcionamiento del **SIGPAC 
 #### 📁 `Img`
 Carpeta con los archivos de imágenes necesarias:
 - **`composición.png`**: Composición del FEGA y el grupo de investigación.
-  
-  ![Composición FEGA](Img/composición.png)
-  
+
 - **`IconoFegaApp.ico`**: Imagen de GEOQUBIDY.
-  
-  ![Icono GEOQUBIDY](Img/IconoFegaApp.ico)
 
 #### 📁 `Lib`
 Contiene los códigos fuente de las funcionalidades de la aplicación:
@@ -57,7 +53,27 @@ Código principal que integra todos los algoritmos dentro de una interfaz gráfi
 
 ## 🖥️ Interfaz gráfica
 
-(TBD - Aquí se pueden agregar más detalles sobre la interfaz gráfica de la aplicación)
+
+![Interfaz SIGPAC Crono](FEGAPP.png)
+
+- Este módulo permite la visualización y análisis de las capas derivadas de la base de datos del **SIGPAC**.
+- Permite evaluar la evolución y cambios en los recintos declarados a lo largo del tiempo.
+- Los datos se pueden visualizar en diferentes formatos y escalas, facilitando la interpretación y el análisis espacial.
+- Se integra con la descarga de imágenes y otros módulos de análisis.
+
+### Procesamiento de índices Sentinel-2
+![Interfaz Índices](descarga.png)
+
+- Esta pestaña abre la interfaz gráfica de la descarga de series temporales.
+- Se debe configurar correctamente antes de ejecutar la aplicación.
+- Permite seleccionar directorios, provincias y opcionalmente un archivo shapefile.
+- Se definen los intervalos de fechas de estudio para la generación de la cronología.
+- Se seleccionan las fechas de inicio y fin del período de descarga.
+- Permite elegir el índice espectral deseado (NDVI, EVI, etc.).
+- Se selecciona la resolución espacial de descarga (10, 20 o 60 m).
+- Se define el directorio de salida para guardar las imágenes descargadas.
+- Se puede ingresar un tile de Sentinel-2 o un shapefile con el área de estudio.
+- Se elige el formato de salida (ENVI o NetCDF).
 
 ---
 

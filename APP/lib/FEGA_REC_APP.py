@@ -511,9 +511,6 @@ def campos(overlay_layer,crono_gdb):
             incid = str('NA' if pd.isna(row[f'incidencias_{year}']) else row[f'incidencias_{year}'])
             resultado += incid
         return resultado[1:]
-    def calcular_id(arg):
-        ## take the id recinto of the last year 
-        return arg.split('_')[-1]
 
 
     ini = int(ini)
@@ -523,6 +520,7 @@ def campos(overlay_layer,crono_gdb):
     overlay_layer['p_crono'] = overlay_layer.apply(lambda row: calcular_pcrono(row, range(ini, fin+1)), axis=1)
     overlay_layer['u_crono'] = overlay_layer.apply(lambda row: calcular_ucrono(row, range(ini, fin+1)), axis=1)
     overlay_layer['i_crono'] = overlay_layer.apply(lambda row: calcular_icrono(row, range(ini, fin+1)), axis=1)
+    overlay_layer['id_recinto'] = overlay_layer.apply(lambda row: row[f'id_recinto_{fin}'], axis=1)
     
 
     campos_export = ['geometry', 'a_crono', 'p_crono', 'u_crono','i_crono', 'id_recinto']
@@ -566,8 +564,8 @@ def campos(overlay_layer,crono_gdb):
     "MT": "MATORRAL",
     "OP": "Otros cultivos Permanentes"
 }
- 
-crono_fin.to_file(crono_gdb[crono_gdb['u_crono'].str.contains
+#### revisar con diego
+crono_fin.to_file(crono_gdb[crono_gdb['u_crono'].str.contains(f'{usos_seleccionados}')
                             ], driver='GPKG', layer=f'CRONO_FIN_{roi}')
 
 def clip(list_dfs, clip):
@@ -576,14 +574,15 @@ def clip(list_dfs, clip):
     return list_dfs        
 
 
-def main(start, end, out_dir, provi, user_url, clip_path = None, ogr2ogr_path = None):
-    global ini, fin, num_prov, provincia, sql_engine, percentaje, roi, message, percentaje, outpath
+def main(start, end, out_dir, provi, user_url, clip_path = None, ogr2ogr_path = None, usos_sel = ['PS','PA','PR','FY','OV','VI']):
+    global ini, fin, num_prov, provincia, sql_engine, percentaje, roi, message, percentaje, outpath, usos_seleccionados
     percentaje = 0
     
     ini = start
     fin = end
     provincia = provi
     outdir = out_dir
+    usos_seleccionados = usos_sel
 
     config = config_csv(r'./config/CSV_CONFIG.csv')
     prov = create_prov_dict(config)

@@ -54,7 +54,7 @@ Código principal que integra todos los algoritmos dentro de una interfaz gráfi
 ## 🖥️ Interfaz gráfica
 
 
-![Interfaz SIGPAC Crono](FEGAPP.png)
+![Interfaz SIGPAC Crono](img/FEGAPP.png)
 
 - Este módulo permite la visualización y análisis de las capas derivadas de la base de datos del **SIGPAC**.
 - Permite evaluar la evolución y cambios en los recintos declarados a lo largo del tiempo.
@@ -62,7 +62,7 @@ Código principal que integra todos los algoritmos dentro de una interfaz gráfi
 - Se integra con la descarga de imágenes y otros módulos de análisis.
 
 ### Procesamiento de índices Sentinel-2
-![Interfaz Índices](descarga.png)
+![Interfaz Índices](img/descarga.png)
 
 - Se seleccionan las fechas de inicio y fin del período de descarga.
 - Permite elegir el índice espectral deseado (NDVI, EVI, etc.).

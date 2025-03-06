@@ -149,7 +149,7 @@ def recintos():
     cap_prevalente as cp_{año},
     uso_sigpac as uso_sigpac_{año},
     incidencias as incidencias_{año},
-    concat(provincia,'-',municipio,'-', agregado,'-',zona,'-',poligono,'-',parcela,'-',recinto) as id_recinto, 
+    concat(provincia,'-',municipio,'-', agregado,'-',zona,'-',poligono,'-',parcela,'-',recinto) as id_recinto_{año}, 
     ST_AREA(ST_TRANSFORM(dn_geom,32630)) as area_m2
 FROM t$recinto_ex
 WHERE 
@@ -160,7 +160,6 @@ WHERE
     AND ST_AREA(ST_TRANSFORM(dn_geom,32630)) > 5000 
     
 """
-
         try:
             rc_df.append(gpd.GeoDataFrame.from_postgis(query, sql_engine, geom_col='dn_geom'))
 
@@ -178,24 +177,8 @@ WHERE
 def lineas():
     global percentaje
     ld_df = []
-    if ini in [2018, 2019]:
-        #### Take the input directory for 2018
-        ld_18 = input("Introduce el directorio de entrada de las lineas de declaracion del 18: ")
-        ld_19 = input("Introduce el directorio de entrada de las lineas de declaracion del 19: ")
-        ld_df.append(gpd.read_file(ld_18, layer = f'LD_{provincia}_2018'))
-        ld_df.append(gpd.read_file(ld_19, layer = f'LD_{provincia}_2019'))
-    dif = fin+1-ini
-    it = 12.5/dif    
-    for año in tqdm(range(int(ini), int(fin)+1)):
-        año_s = str(año)
-        fecha_inicio = date.fromisoformat(año_s+'-01-01')
-        fecha_fin = date.fromisoformat(año_s+'-12-31')
-        if año in [2018, 2019]:
-            pass
-            
-        else:
-            tqdm.write("Extrayendo la tabla ld_"+ str(provincia)+"_"+str(año)+ "...")
-            query = f"""
+    tqdm.write("Extrayendo la tabla ld_"+ str(provincia)+"_"+str(año)+ "...")
+    query = f"""
 SELECT         
     ld.dn_pk as ld_pk_{año},
     ld.parc_producto as parc_producto_{año},
@@ -383,7 +366,7 @@ def overlay_rd(recintos_df, lineas_df, outdir = ''):
 
         ####################################################
         
-        campos_export = [f'uso_sigpac_{cur_year}', f'parc_producto_{cur_year}', f'incidencias_{cur_year}',f'cp_{cur_year}'
+        campos_export = [f'uso_sigpac_{cur_year}', f'parc_producto_{cur_year}', f'incidencias_{cur_year}',f'cp_{cur_year}', f'id_recinto_{cur_year}'
                          ,'geometry']
         over_df = over_df[campos_export]
         over_df[f'incidencias_{cur_year}'] = over_df[f'incidencias_{cur_year}'].astype(str)
@@ -515,56 +498,77 @@ def campos(overlay_layer,crono_gdb):
     
     def calcular_ucrono (row,years):
         resultado = ''
-        
         for year in years:
-            uso = row[f'uso_sigpac_{year}']    
-            if uso == 'OV' :
-                resultado += '0'
-            elif uso == 'VI':
-                resultado += '1'
-            elif uso == 'FY':
-                resultado += '2'
-            elif uso == 'PA':
-                resultado += '3'
-            elif uso == 'PR':
-                resultado += '4'
-            elif uso == 'PS':
-                resultado += '5'
-            elif uso == 'IM':
-                resultado += '6'
-            else:
-                resultado += '7'
-                
-        return resultado
+            resultado += '_'
+            uso = str('NU' if pd.isna(row[f'uso_sigpac_{year}']) else row[f'uso_sigpac_{year}'])
+            resultado += uso
+        return resultado[1:]
     
+    def calcular_icrono(row,years):
+        resultado = ''
+        for year in years:
+            resultado += '_'
+            incid = str('NA' if pd.isna(row[f'incidencias_{year}']) else row[f'incidencias_{year}'])
+            resultado += incid
+        return resultado[1:]
+    def calcular_id(arg):
+        ## take the id recinto of the last year 
+        return arg.split('_')[-1]
+
+
     ini = int(ini)
     fin = int(fin)
-    overlay_layer[f'a_crono'] = overlay_layer.apply(lambda row: calcular_acrono(row, range(ini, fin+1)), axis=1)
-    overlay_layer[f'p_crono'] = overlay_layer.apply(lambda row: calcular_pcrono(row, range(ini, fin+1)), axis=1)
-    overlay_layer[f'u_crono'] = overlay_layer.apply(lambda row: calcular_ucrono(row, range(ini, fin+1)), axis=1)
+    
+    overlay_layer['a_crono'] = overlay_layer.apply(lambda row: calcular_acrono(row, range(ini, fin+1)), axis=1)
+    overlay_layer['p_crono'] = overlay_layer.apply(lambda row: calcular_pcrono(row, range(ini, fin+1)), axis=1)
+    overlay_layer['u_crono'] = overlay_layer.apply(lambda row: calcular_ucrono(row, range(ini, fin+1)), axis=1)
+    overlay_layer['i_crono'] = overlay_layer.apply(lambda row: calcular_icrono(row, range(ini, fin+1)), axis=1)
+    
 
-    campos_export = ['geometry', 'a_crono', 'p_crono', 'u_crono']
+    campos_export = ['geometry', 'a_crono', 'p_crono', 'u_crono','i_crono', 'id_recinto']
     crono_fin = overlay_layer[campos_export]
     crono_fin = crono_fin.drop_duplicates(subset='geometry')  
 
-    crono_fin.to_file(crono_gdb, driver='GPKG', layer=f'CRONO_FIN_{roi}')
     
-    
-    pastos = crono_fin[crono_fin['u_crono'].str.contains('3|4|5')]
-    pastos.to_file(crono_gdb, driver='GPKG', layer=f'PASTOS_{roi}', index=False)
-    print(f"Pastos finished")
-    ov = crono_fin[crono_fin['u_crono'].str.contains('0')]
-    ov.to_file(crono_gdb, driver='GPKG', layer=f'OLIVO_{roi}', index=False)
-    print(f"Olivos finished")
-    vi = crono_fin[crono_fin['u_crono'].str.contains('1')]
-    vi.to_file(crono_gdb, driver='GPKG', layer=f'VINIEDOS_{roi}', index=False)
-    print(f"Viñedos finished")
-    fy = crono_fin[crono_fin['u_crono'].str.contains('2')]
-    fy.to_file(crono_gdb, driver='GPKG', layer=f'FRUTALES_{roi}', index=False)
-    print(f"Frutales finished")
-    im = crono_fin[crono_fin['u_crono'].str.contains('6')]
-    im.to_file(crono_gdb, driver='GPKG', layer=f'IMPRODUCTIVOS_{roi}', index=False)
-    
+    usos_suelo = {
+    "AG": "CORRIENTES Y SUPERFICIES DE AGUA",
+    "CA": "VIALES",
+    "CI": "CITRICOS",
+    "CO": "CONTORNO OLIVAR",
+    "ED": "EDIFICACIONES",
+    "FO": "FORESTAL",
+    "FY": "FRUTALES",
+    "IM": "IMPRODUCTIVOS",
+    "IV": "INVERNADEROS Y CULTIVOS BAJO PLASTICO",
+    "OF": "OLIVAR - FRUTAL",
+    "OV": "OLIVAR",
+    "PA": "PASTO CON ARBOLADO",
+    "PR": "PASTO ARBUSTIVO",
+    "PS": "PASTIZAL",
+    "TA": "TIERRAS ARABLES",
+    "TH": "HUERTA",
+    "VF": "VIÑEDO - FRUTAL",
+    "VI": "VIÑEDO",
+    "VO": "VIÑEDO - OLIVAR",
+    "ZC": "ZONA CONCENTRADA NO INCLUIDA EN LA ORTOF",
+    "ZU": "ZONA URBANA",
+    "ZV": "ZONA CENSURADA",
+    "FS": "FRUTOS SECOS",
+    "FL": "FRUTOS SECOS Y OLIVAR",
+    "FV": "FRUTOS SECOS Y VIÑEDO",
+    "IS": "ISLAS",
+    "OC": "Asociación Olivar-Cítricos",
+    "CV": "Asociación Cítricos-Viñedo",
+    "CF": "Asociación Cítricos-Frutales",
+    "CS": "Asociación Cítricos-Frutales de cáscara",
+    "FF": "Asociación Frutales-Frutales de cáscara",
+    "EP": "ELEMENTO DEL PAISAJE",
+    "MT": "MATORRAL",
+    "OP": "Otros cultivos Permanentes"
+}
+ 
+crono_fin.to_file(crono_gdb[crono_gdb['u_crono'].str.contains
+                            ], driver='GPKG', layer=f'CRONO_FIN_{roi}')
 
 def clip(list_dfs, clip):
     for i in range(len(list_dfs)):

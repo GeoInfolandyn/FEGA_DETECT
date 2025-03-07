@@ -527,43 +527,6 @@ def campos(overlay_layer,crono_gdb):
     crono_fin = overlay_layer[campos_export]
     crono_fin = crono_fin.drop_duplicates(subset='geometry')  
 
-    
-    usos_suelo = {
-    "AG": "CORRIENTES Y SUPERFICIES DE AGUA",
-    "CA": "VIALES",
-    "CI": "CITRICOS",
-    "CO": "CONTORNO OLIVAR",
-    "ED": "EDIFICACIONES",
-    "FO": "FORESTAL",
-    "FY": "FRUTALES",
-    "IM": "IMPRODUCTIVOS",
-    "IV": "INVERNADEROS Y CULTIVOS BAJO PLASTICO",
-    "OF": "OLIVAR - FRUTAL",
-    "OV": "OLIVAR",
-    "PA": "PASTO CON ARBOLADO",
-    "PR": "PASTO ARBUSTIVO",
-    "PS": "PASTIZAL",
-    "TA": "TIERRAS ARABLES",
-    "TH": "HUERTA",
-    "VF": "VIÑEDO - FRUTAL",
-    "VI": "VIÑEDO",
-    "VO": "VIÑEDO - OLIVAR",
-    "ZC": "ZONA CONCENTRADA NO INCLUIDA EN LA ORTOF",
-    "ZU": "ZONA URBANA",
-    "ZV": "ZONA CENSURADA",
-    "FS": "FRUTOS SECOS",
-    "FL": "FRUTOS SECOS Y OLIVAR",
-    "FV": "FRUTOS SECOS Y VIÑEDO",
-    "IS": "ISLAS",
-    "OC": "Asociación Olivar-Cítricos",
-    "CV": "Asociación Cítricos-Viñedo",
-    "CF": "Asociación Cítricos-Frutales",
-    "CS": "Asociación Cítricos-Frutales de cáscara",
-    "FF": "Asociación Frutales-Frutales de cáscara",
-    "EP": "ELEMENTO DEL PAISAJE",
-    "MT": "MATORRAL",
-    "OP": "Otros cultivos Permanentes"
-}
 #### revisar con diego
 crono_fin.to_file(crono_gdb[crono_gdb['u_crono'].str.contains(f'{usos_seleccionados}')
                             ], driver='GPKG', layer=f'CRONO_FIN_{roi}')

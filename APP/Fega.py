@@ -13,10 +13,28 @@ import os
 from threading import Thread
 from datetime import datetime
 
-# --------------------------
-# DICCIONARIOS Y VARIABLES GLOBALES
-# --------------------------
+import geopandas as gpd
+from tqdm import tqdm
+from datetime import date
+from sqlalchemy import create_engine
+import shapely
+from shapely.geometry import MultiPolygon, box, LineString
+from shapely.wkt import loads, dumps
+import numpy as np
+import pandas as pd
+import warnings
+from scipy.spatial import ConvexHull
 
+# ------------------------------------------------------------------------------
+# CONFIGURACIONES GLOBALES
+# ------------------------------------------------------------------------------
+ctk.set_default_color_theme("green")
+ctk.set_appearance_mode('light')
+
+warnings.filterwarnings('ignore', 'GeoSeries.notna', UserWarning)
+warnings.filterwarnings("ignore", message="`unary_union` returned None due to all-None GeoSeries")
+
+# DICCIONARIOS Y VARIABLES GLOBALES
 provincias_españa = [
     "Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", 
     "Badajoz", "Baleares", "Barcelona", "Burgos", 
@@ -36,7 +54,6 @@ provincias_españa = [
     "Zamora", "Zaragoza"
 ]
 
-# Diccionario de provincia->nombre simplificado (para la SQL u otras necesidades)
 provincias_sencillas = {
     'Álava': 'Alava',
     'Albacete': 'Albacete',
@@ -130,31 +147,13 @@ usos_suelo = {
     "OP": "Otros cultivos Permanentes"
 }
 
-# Variable global para la configuración (ruta de DB, etc.)
+# Variables globales para configuración
 user_sql_url = None
 ogr_path = None
 
-# --------------------------
-# MÓDULO FEGA_REC_APP - ANTES ERA OTRO SCRIPT
-# --------------------------
-
-import geopandas as gpd
-from tqdm import tqdm
-from datetime import date
-from sqlalchemy import create_engine
-import shapely
-from shapely.geometry import MultiPolygon, box, LineString
-from shapely.wkt import loads, dumps
-import numpy as np
-import pandas as pd
-import warnings
-from scipy.spatial import ConvexHull
-
-# Desactivamos warnings molestos
-warnings.filterwarnings('ignore', 'GeoSeries.notna', UserWarning)
-warnings.filterwarnings("ignore", message="`unary_union` returned None due to all-None GeoSeries")
-
-# Aquí guardamos el "estado" de FEGA_REC_APP para que la GUI pueda leerlo
+# ------------------------------------------------------------------------------
+# FEGA_REC_APP: Lógica principal de procesamiento
+# ------------------------------------------------------------------------------
 class FEGA_REC_APP:
     message = ''
     percentaje = 0
@@ -162,10 +161,6 @@ class FEGA_REC_APP:
 
     @staticmethod
     def config_csv(csv_path: str) -> dict:
-        """
-        Reads a CSV file containing configuration data for comunidades autónomas, 
-        including start/end dates and database names, and converts it into a dictionary.
-        """
         df = pd.read_csv(csv_path, delimiter=';')
         years = [str(i) for i in range(2020, 2024 + 1)]
         relevant_columns = ['Comunidad_autonoma', 'Nombre_base_datos'] + years
@@ -180,10 +175,6 @@ class FEGA_REC_APP:
     
     @staticmethod
     def create_prov_dict(config):
-        """
-        Crea un diccionario provincia->(número_provincia, (db, {años})) 
-        Con la info del CSV y el nombre de cada comunidad
-        """
         return {
             'Alava':        (1,  config['PAIS-VASCO']),
             'Albacete':     (2,  config['CASTILLA-LA-MANCHA']),
@@ -307,17 +298,11 @@ class FEGA_REC_APP:
     
     @staticmethod
     def main(start, end, out_dir, provi, user_url, clip_path=None, ogr2ogr_path=None, usos_sel=None):
-        """
-        Función principal que hace todo el proceso: 
-        - Se conecta a la BBDD. 
-        - Extrae recintos, líneas, genera overlays y la capa final de cronología.
-        - Param usos_sel: lista de usos que queremos filtrar o manejar en la cronología.
-        """
-        # Si el usuario no seleccionó usos, por defecto marcamos algunos
+        from tkinter import messagebox
+        
         if usos_sel is None:
             usos_sel = ['PS', 'PA', 'PR', 'FY', 'OV', 'VI']
         
-        # Para facilitar lectura
         FEGA_REC_APP.message = ''
         FEGA_REC_APP.percentaje = 0
         FEGA_REC_APP.outpath = ''
@@ -327,11 +312,9 @@ class FEGA_REC_APP:
         provincia = provi
         outdir = out_dir
         
-        # 1) Cargar config CSV
         FEGA_REC_APP.message = "Cargando configuración..."
         config = FEGA_REC_APP.config_csv(r'./config/CSV_CONFIG.csv')
         
-        # 2) Crear diccionario de provincias
         prov_dict = FEGA_REC_APP.create_prov_dict(config)
         
         if provincia not in prov_dict:
@@ -339,25 +322,19 @@ class FEGA_REC_APP:
             return
         num_prov, (db_name, dates_dict) = prov_dict[provincia]
         
-        # 3) Conexión a la BBDD
-        # user_url es la base: "postgresql://user:pass@host:port"
-        # y el CSV nos dice el nombre de la BD a conectar
+        # Conexión a la BBDD
         url_db = f"{user_url}/{db_name}"
         sql_engine = create_engine(url_db)
         
-        # 4) Extraer recintos año a año
-        #   para cada año, formamos la query y guardamos en recintos_df
         FEGA_REC_APP.message = 'Extrayendo recintos...'
         recintos_df = []
         dif = fin + 1 - ini
-        it = 12.5 / dif  # para progreso
+        it = 12.5 / dif if dif != 0 else 12.5
         
         for year in tqdm(range(ini, fin + 1)):
             year_s = str(year)
             next_s = str(year + 1)
-            # leer las fechas de la comunidad
             fecha_inicio = date.fromisoformat(dates_dict[year_s])
-            # next year en el CSV
             fecha_fin = date.fromisoformat(dates_dict[next_s]) if next_s in dates_dict else date.fromisoformat(dates_dict[year_s])
             
             query = f"""
@@ -376,8 +353,8 @@ WHERE (dn_initialdate <= '{fecha_fin}' AND
   AND (dn_initialdate_1 <= '{fecha_fin}' AND
       ((dn_enddate_1 BETWEEN '{fecha_inicio}' AND '{fecha_fin}') or dn_enddate_1 is null))
   AND provincia = {num_prov}
-  AND uso_sigpac <> 'CA' AND uso_sigpac <> 'AG' AND uso_sigpac <> 'ZU' AND uso_sigpac <> 'ED'
-  AND uso_sigpac <> 'ZC' AND uso_sigpac <> 'ZV' AND uso_sigpac <> 'IV'
+  AND uso_sigpac <> 'CA' AND uso_sigpac <> 'AG' AND uso_sigpac <> 'ZU' 
+  AND uso_sigpac <> 'ED' AND uso_sigpac <> 'ZC' AND uso_sigpac <> 'ZV' AND uso_sigpac <> 'IV'
   AND ST_AREA(ST_TRANSFORM(dn_geom,32630)) > 5000;
 """
             try:
@@ -390,13 +367,10 @@ WHERE (dn_initialdate <= '{fecha_fin}' AND
                 tqdm.write(f"Error al extraer recintos de {year}: {e}")
             FEGA_REC_APP.percentaje += it
         
-        # 5) Extraer líneas
         FEGA_REC_APP.message = 'Extrayendo líneas de declaración...'
         lineas_df = []
-        dif = fin + 1 - ini
-        it_lineas = 12.5 / dif
+        it_lineas = 12.5 / dif if dif != 0 else 12.5
         
-        # Hacemos la misma iteración de años para las líneas
         for year in tqdm(range(ini, fin + 1)):
             year_s = str(year)
             next_s = str(year + 1)
@@ -437,7 +411,6 @@ WHERE ((ld.dn_initialdate <= '{fecha_fin}' AND
             recintos_df = FEGA_REC_APP.clip_dfs(recintos_df, cliped)
             lineas_df = FEGA_REC_APP.clip_dfs(lineas_df, cliped)
         
-        # 7) Overlay recintos y líneas año a año
         FEGA_REC_APP.message = "Creando recintos declarados..."
         rd_dir = os.path.join(outdir, f"{num_prov}.gpkg")
         layers_out = []
@@ -472,8 +445,7 @@ WHERE ((ld.dn_initialdate <= '{fecha_fin}' AND
             over_df[f'incidencias_{cur_year}'] = over_df[f'incidencias_{cur_year}'].astype(str)
             over_df = gpd.GeoDataFrame(over_df, geometry='geometry', crs=rc.crs)
             
-            # Ejemplo "clasificación"
-            # Se crea la columna 'est_aband_{año}' con lógica simple
+            # clasificacion en 'est_aband_{cur_year}'
             over_df[f'est_aband_{cur_year}'] = over_df.apply(
                 lambda row: ('SLD' if pd.isna(row[f'parc_producto_{cur_year}']) or row[f'parc_producto_{cur_year}'] == 0 else
                              'A'   if '117' in row[f'incidencias_{cur_year}'] or '199' in row[f'incidencias_{cur_year}'] else
@@ -498,7 +470,6 @@ WHERE ((ld.dn_initialdate <= '{fecha_fin}' AND
                 axis=1
             )
             
-            # Transformar a multipolygon si es polígono
             over_df['geometry'] = over_df['geometry'].apply(
                 lambda x: MultiPolygon([x]) if x.geom_type == 'Polygon' else x
             )
@@ -509,7 +480,6 @@ WHERE ((ld.dn_initialdate <= '{fecha_fin}' AND
             cur_year += 1
             FEGA_REC_APP.percentaje += it_rd
         
-        # Capa CRONO
         FEGA_REC_APP.message = "Creando capa CRONO..."
         def overlay_crono(layers, gpkg_path):
             if len(layers) < 2:
@@ -539,10 +509,8 @@ WHERE ((ld.dn_initialdate <= '{fecha_fin}' AND
                 input_layer = output_layer
             return input_layer
         
-        # Unimos año tras año
         final_layer = overlay_crono(layers_out, rd_dir)
         
-        # Finalmente, creamos campo de cronología
         FEGA_REC_APP.message = "Exportando cronología final..."
         if final_layer:
             df_crono = gpd.read_file(rd_dir, layer=final_layer)
@@ -595,30 +563,24 @@ WHERE ((ld.dn_initialdate <= '{fecha_fin}' AND
             df_crono['p_crono'] = df_crono.apply(lambda r: calcular_pcrono(r, years_list), axis=1)
             df_crono['u_crono'] = df_crono.apply(lambda r: calcular_ucrono(r, years_list), axis=1)
             df_crono['i_crono'] = df_crono.apply(lambda r: calcular_icrono(r, years_list), axis=1)
-            
             df_crono['id_recinto'] = df_crono.apply(lambda r: r.get(f'id_recinto_{fin}', ''), axis=1)
             
-            # (Si quisieras filtrar por usos_sel, podrías hacerlo aquí usando df_crono['u_crono'].str.contains(...) )
-            # Por ejemplo:
-            # patrón = '|'.join(usos_sel)
-            # df_crono = df_crono[df_crono['u_crono'].str.contains(patrón)]
+            # Filtrar por usos_sel si fuera necesario:
+            # pattern = '|'.join(usos_sel)
+            # df_crono = df_crono[df_crono['u_crono'].str.contains(pattern)]
             
             final_export_layer = f"CRONO_FIN_{num_prov}"
             campos_export = ['geometry','a_crono','p_crono','u_crono','i_crono','id_recinto']
             df_crono[campos_export].to_file(rd_dir, driver='GPKG', layer=final_export_layer)
         
-        # Marcamos final
         FEGA_REC_APP.percentaje = 100
         FEGA_REC_APP.message = "Proceso finalizado"
         FEGA_REC_APP.outpath = rd_dir
 
-# --------------------------
-# CLASE PRINCIPAL DE LA APP
-# --------------------------
 
-ctk.set_default_color_theme("green")
-ctk.set_appearance_mode('light')
-
+# ------------------------------------------------------------------------------
+# CLASE PRINCIPAL: Fega
+# ------------------------------------------------------------------------------
 class Fega(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -626,12 +588,13 @@ class Fega(ctk.CTk):
         self.geometry("750x550")
         self.iconbitmap("./img/IconoFegaApp.ico")
         self.resizable(0,0)
+        
         self.grid_columnconfigure((0,1), weight=1)
         self.grid_rowconfigure([i for i in range(10)], weight=1)
         
-        # Menú
         self.menu = Menu(self)
         self.menu.grid(row=1, column=0, rowspan=9, sticky='nwes', padx=5, pady=5, columnspan=2)
+        
         self.createWidgets()
         
     def createWidgets(self):
@@ -640,11 +603,11 @@ class Fega(ctk.CTk):
         self.logo.grid(row=0, column=0, padx=10, sticky='wns')
         
         self.btn_config = ctk.CTkButton(
-            master=self, 
-            width=80, 
-            text="Image Download", 
-            font=("Helvetica", 20), 
-            fg_color="Grey", 
+            master=self,
+            width=80,
+            text="Image Download",
+            font=("Helvetica", 20),
+            fg_color="Grey",
             command=self.open_sentinel_app
         )
         self.btn_config.grid(row=0, column=1, sticky="w", padx=40)
@@ -661,11 +624,11 @@ class Fega(ctk.CTk):
         top.geometry("540x350")
         SentinelIndexProcessorApp(top).pack(expand=True, fill="both")
         top.wm_transient(self)
-    
-# --------------------------
-# CLASE PARA DESCARGA Y PROCESADO SENTINEL
-# --------------------------
 
+
+# ------------------------------------------------------------------------------
+# CLASE PARA DESCARGA Y PROCESADO SENTINEL
+# ------------------------------------------------------------------------------
 class SentinelIndexProcessorApp(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master)
@@ -683,7 +646,7 @@ class SentinelIndexProcessorApp(ctk.CTkFrame):
         self.index_options = [
             'NDVI', 'GNDVI', 'LAI', 'EVI', 'LAI_EVI', 'SR', 'NIR', 'RED',
             'SAVI', 'fAPAR', 'AR', 'AS1', 'SASI', 'ANIR', 'ARE1', 'ARE2',
-            'ARE3', 'NBR','CONC', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6', 
+            'ARE3', 'NBR','CONC', 'B1', 'B2', 'B3', 'B4', 'B5', 'B6',
             'B7', 'B8', 'B9', 'B10', 'B11', 'B12', 'SCL'
         ]
         self.create_widgets()
@@ -691,30 +654,30 @@ class SentinelIndexProcessorApp(ctk.CTkFrame):
     def create_widgets(self):
         ctk.CTkLabel(self, text="Start Date:").grid(row=0, column=0, pady=(25,5), padx=(30,10), sticky="w")
         ctk.CTkEntry(self, textvariable=self.start_date_var, width=200).grid(row=0, column=1, pady=(25,5), padx=(0,5))
-        ctk.CTkButton(self, text="📅", command=lambda: self.open_calendar('start')).grid(row=0, column=2, padx=(5,5),pady=(25,5))
+        ctk.CTkButton(self, text="📅", command=lambda: self.open_calendar('start')).grid(row=0, column=2, padx=(5,5), pady=(25,5))
 
         ctk.CTkLabel(self, text="End Date:").grid(row=1, column=0, pady=5, padx=(30,10), sticky="w")
         ctk.CTkEntry(self, textvariable=self.end_date_var, width=200).grid(row=1, column=1, pady=5, padx=(0,5))
         ctk.CTkButton(self, text="📅", command=lambda: self.open_calendar('end')).grid(row=1, column=2, padx=5)
 
         ctk.CTkLabel(self, text="Index Type:").grid(row=2, column=0, pady=5, padx=(30,10), sticky="w")
-        ctk.CTkComboBox(self, values=self.index_options, variable=self.index_type_var).grid(row=2, column=1, pady=5,padx=(0,5), sticky="we")
+        ctk.CTkComboBox(self, values=self.index_options, variable=self.index_type_var).grid(row=2, column=1, pady=5, padx=(0,5), sticky="we")
 
         ctk.CTkLabel(self, text="Resolution:").grid(row=3, column=0, pady=5, padx=(30,10), sticky="w")
-        ctk.CTkComboBox(self, values=["10", "20", "60"], variable=self.resolution_var).grid(row=3, column=1, pady=5,padx=(0,5), sticky="we")
+        ctk.CTkComboBox(self, values=["10", "20", "60"], variable=self.resolution_var).grid(row=3, column=1, pady=5, padx=(0,5), sticky="we")
 
         ctk.CTkLabel(self, text="Output Directory:").grid(row=4, column=0, pady=5, padx=(30,10), sticky="w")
-        ctk.CTkEntry(self, textvariable=self.output_dir_var, width=200).grid(row=4, column=1, pady=5,padx=(0,5))
+        ctk.CTkEntry(self, textvariable=self.output_dir_var, width=200).grid(row=4, column=1, pady=5, padx=(0,5))
         ctk.CTkButton(self, text="📁", command=self.select_output_directory).grid(row=4, column=2, padx=5)
 
         ctk.CTkLabel(self, text="ROI:").grid(row=5, column=0, pady=5, padx=(30,10), sticky="w")
-        self.roi = ctk.CTkEntry(self, width=100,placeholder_text='Write the Tile name or shapefile')
-        self.roi.grid(row=5, column=1, pady=5,padx=(0,5), sticky="we")
+        self.roi = ctk.CTkEntry(self, width=100, placeholder_text='Write the Tile name or shapefile')
+        self.roi.grid(row=5, column=1, pady=5, padx=(0,5), sticky="we")
         self.check = ctk.CTkCheckBox(self, text="Shapefile", command=self.select_clip_path)
         self.check.grid(row=5, column=2, padx=5)
 
-        ctk.CTkLabel(self, text="Output Format:").grid(row=7, column=0, pady=5, sticky="w",padx=(30,10))
-        ctk.CTkComboBox(self, values=["ENVI", "NetCDF"], variable=self.driver_var).grid(row=7, column=1, pady=5,padx=(0,5), sticky="we")
+        ctk.CTkLabel(self, text="Output Format:").grid(row=7, column=0, pady=5, sticky="w", padx=(30,10))
+        ctk.CTkComboBox(self, values=["ENVI", "NetCDF"], variable=self.driver_var).grid(row=7, column=1, pady=5, padx=(0,5), sticky="we")
 
         ctk.CTkButton(self, text="Process Sentinel-2 Data", fg_color="Blue", command=self.process_data).grid(row=8, column=0, columnspan=3, pady=20)
 
@@ -810,19 +773,21 @@ class SentinelIndexProcessorApp(ctk.CTkFrame):
         ctk.CTkButton(cal_frame, text="Select", command=set_date).grid(row=1, column=1, pady=10)
 
 
-# --------------------------
+# ------------------------------------------------------------------------------
 # MENÚ LATERAL
-# --------------------------
-
+# ------------------------------------------------------------------------------
 class Menu(ctk.CTkFrame):
     def __init__(self, master):
         super().__init__(master)
+        # Ajustamos la rejilla para que haya espacio
         self.grid_columnconfigure([i for i in range(4)], weight=1)
-        self.grid_rowconfigure([i for i in range(7)], weight=1)
+        self.grid_rowconfigure([i for i in range(8)], weight=1)
         
-        self.selected_usos = []  # Para almacenar los usos seleccionados
+        self.selected_usos = []
         self.clip = None
         self.directory = ""
+        
+        self.usos_open = False  # Para controlar si el frame de usos está desplegado
         
         self.createWidgets()
     
@@ -835,6 +800,7 @@ class Menu(ctk.CTkFrame):
         conf.write(text)
     
     def createWidgets(self):
+        # Botón Set Configuration
         self.btn_config = ctk.CTkButton(
             master=self, 
             width=80, 
@@ -844,6 +810,7 @@ class Menu(ctk.CTkFrame):
         )
         self.btn_config.grid(row=0, column=0, pady=6, padx=40, sticky="we")
         
+        # Botón "Select Directory"
         self.btn_dir = ctk.CTkButton(
             master=self, 
             width=160, 
@@ -854,9 +821,10 @@ class Menu(ctk.CTkFrame):
         self.btn_dir.grid(row=1, column=0, sticky="we", padx=40)
         
         self.entry_dir = ctk.CTkEntry(self, placeholder_text="No directory selected")
-        self.entry_dir.grid(row=1, column=1, sticky="we", columnspan=2, padx=10)
+        self.entry_dir.grid(row=1, column=1, sticky="we", columnspan=3, padx=10)
         self.entry_dir.configure(state="disabled")
         
+        # Provincia
         self.prov_label = ctk.CTkLabel(self, text="Select Province", font=('Helvetica', 15, "bold"))
         self.prov_label.grid(row=2, column=0, sticky="we", padx=40)
         
@@ -867,18 +835,10 @@ class Menu(ctk.CTkFrame):
             font=('Helvetica', 15)
         )
         self.provincias.set("Select province")
-        self.provincias.grid(row=2, column=1, sticky="we", padx=10, columnspan=2)
+        self.provincias.grid(row=2, column=1, sticky="we", padx=10, columnspan=3)
         self.provincias.set("")
         
-        # Botón para la ventana de Usos del Suelo
-        self.btn_usos = ctk.CTkButton(
-            master=self,
-            text="Select Land Uses",
-            font=("Helvetica", 15, "bold"),
-            command=self.open_usos_window
-        )
-        self.btn_usos.grid(row=2, column=3, sticky="we", padx=10)
-        
+        # ROI
         self.clipLabel = ctk.CTkButton(
             self,
             text="Select ROI (optional)",
@@ -888,73 +848,88 @@ class Menu(ctk.CTkFrame):
         self.clipLabel.grid(row=3, column=0, sticky="we", padx=40)
         
         self.entry_clip = ctk.CTkEntry(self, placeholder_text="No file selected")
-        self.entry_clip.grid(row=3, column=1, sticky="we", columnspan=2, padx=10)
+        self.entry_clip.grid(row=3, column=1, sticky="we", columnspan=3, padx=10)
         self.entry_clip.configure(state="disabled")
         
-        self.start_years = self.generate_years(2020, 2024)
-        self.end_years = self.generate_years(2020, 2024)
-        
-        self.yearsLabel = ctk.CTkLabel(self, text="Year Interval", font=('Helvetica', 15, "bold"), width=20)
-        self.yearsLabel.grid(row=4, column=0, sticky="we", padx=10)
-        
-        self.start_year_selector = ctk.CTkComboBox(self, values=self.start_years, font=('Helvetica', 15), width=180)
-        self.start_year_selector.set("INITIAL YEAR")
-        self.start_year_selector.grid(row=4, column=1, sticky="we", padx=10)
-        
-        self.end_year_selector = ctk.CTkComboBox(self, values=self.end_years, font=('Helvetica', 15), width=180)
-        self.end_year_selector.set("END YEAR")
-        self.end_year_selector.grid(row=4, column=2, sticky="we", padx=10)
-
-        self.progressbar = ctk.CTkProgressBar(self, orientation="horizontal", determinate_speed=.5, mode="determinate", height=12)
-        self.progressbar.grid(row=5, column=1, sticky="we", padx=10, columnspan=3)
-        self.progressbar.set(0)
-        
-        self.porcentaje = ctk.CTkLabel(self, text="0%", font=('Helvetica', 14))
-        self.porcentaje.grid(row=5, column=0, sticky="e", padx=10)
-        
-        self.espacio = ctk.CTkLabel(self, text="", font=('Helvetica', 15, "bold"), width=20)
-        self.espacio.grid(row=5, column=4, sticky="we", padx=10)
-        
-        self.start_process = ctk.CTkButton(
-            self, 
-            width=80, 
-            text="Start Process",
-            command=self.startProcess,
-            fg_color="Blue", 
-            font=('Helvetica', 18, "bold")
+        # DESPLEGABLE PARA USOS DEL SUELO (checkboxes con scroll)
+        self.usos_button = ctk.CTkButton(
+            self,
+            text="▼  Select Land Uses",
+            font=("Helvetica", 15, "bold"),
+            command=self.toggle_usos
         )
-        self.start_process.grid(row=6, column=1, sticky="we", padx=10, pady=15, columnspan=2)
-    
-    def open_usos_window(self):
-        top = ctk.CTkToplevel(self)
-        top.title("Seleccionar Usos del Suelo")
-        top.geometry("380x450")
+        self.usos_button.grid(row=4, column=0, sticky="we", padx=40, columnspan=4, pady=(5,5))
         
-        frame_checks = ctk.CTkFrame(top)
-        frame_checks.pack(side="top", fill="both", expand=True, padx=10, pady=10)
+        # Frame oculto con scroll y checkboxes
+        self.usos_frame = ctk.CTkScrollableFrame(self, width=320, height=120, label_text="Select Land Uses:")
+        self.usos_frame.grid(row=5, column=0, columnspan=4, sticky="nwe", padx=40, pady=5)
+        self.usos_frame.grid_remove()  # lo ocultamos de inicio
         
         self.usos_vars = {}
         for code, desc in usos_suelo.items():
             var = tk.BooleanVar(value=False)
             chk = ctk.CTkCheckBox(
-                frame_checks,
+                master=self.usos_frame,
                 text=f"{code} - {desc}",
                 variable=var
             )
-            chk.pack(anchor="w", pady=2)
+            chk.pack(anchor="w", pady=2, padx=5)
             self.usos_vars[code] = var
         
-        confirm_btn = ctk.CTkButton(top, text="Confirmar selección", command=lambda: self.confirm_usos(top))
-        confirm_btn.pack(side="bottom", pady=10)
+        # Intervalo de años
+        self.start_years = self.generate_years(2020, 2024)
+        self.end_years = self.generate_years(2020, 2024)
+        
+        self.yearsLabel = ctk.CTkLabel(self, text="Year Interval", font=('Helvetica', 15, "bold"), width=20)
+        self.yearsLabel.grid(row=6, column=0, sticky="we", padx=10)
+        
+        self.start_year_selector = ctk.CTkComboBox(self, values=self.start_years, font=('Helvetica', 15), width=180)
+        self.start_year_selector.set("INITIAL YEAR")
+        self.start_year_selector.grid(row=6, column=1, sticky="we", padx=10)
+        
+        self.end_year_selector = ctk.CTkComboBox(self, values=self.end_years, font=('Helvetica', 15), width=180)
+        self.end_year_selector.set("END YEAR")
+        self.end_year_selector.grid(row=6, column=2, sticky="we", padx=10)
+        
+        # Barra de progreso
+        self.progressbar = ctk.CTkProgressBar(self, orientation="horizontal", determinate_speed=.5, mode="determinate", height=12)
+        self.progressbar.grid(row=7, column=1, sticky="we", padx=10, columnspan=3)
+        self.progressbar.set(0)
+        
+        self.porcentaje = ctk.CTkLabel(self, text="0%", font=('Helvetica', 14))
+        self.porcentaje.grid(row=7, column=0, sticky="e", padx=10)
+        
+        # Botón Start Process
+        self.start_process = ctk.CTkButton(
+            self,
+            width=80,
+            text="Start Process",
+            command=self.startProcess,
+            fg_color="Blue",
+            font=('Helvetica', 18, "bold")
+        )
+        self.start_process.grid(row=8, column=1, sticky="we", padx=10, pady=15, columnspan=2)
     
-    def confirm_usos(self, window):
-        self.selected_usos.clear()
-        for code, var in self.usos_vars.items():
-            if var.get():
-                self.selected_usos.append(code)
-        window.destroy()
-        print("Usos del suelo seleccionados:", self.selected_usos)
-
+    def toggle_usos(self):
+        """Muestra/oculta el frame con checkboxes de usos."""
+        if self.usos_open:
+            # Ocultamos el frame
+            self.usos_frame.grid_remove()
+            # Actualizamos el texto del botón
+            self.usos_button.configure(text="▼  Select Land Uses")
+            self.usos_open = False
+            # Guardar selección en self.selected_usos
+            self.selected_usos.clear()
+            for code, var in self.usos_vars.items():
+                if var.get():
+                    self.selected_usos.append(code)
+            print("Usos seleccionados:", self.selected_usos)
+        else:
+            # Mostramos el frame
+            self.usos_frame.grid()
+            self.usos_button.configure(text="▲  Select Land Uses")
+            self.usos_open = True
+    
     def selectdir(self):
         self.directory = filedialog.askdirectory(title="Select Directory")
         self.entry_dir.configure(state="normal")
@@ -974,6 +949,11 @@ class Menu(ctk.CTkFrame):
     
     def startProcess(self):
         global user_sql_url, ogr_path
+        
+        # Si el dropdown de usos estaba abierto, lo cerramos para asegurar la recogida final
+        if self.usos_open:
+            self.toggle_usos()
+        
         if user_sql_url:
             if (self.start_year_selector.get() != "INITIAL YEAR" and
                 self.end_year_selector.get() != "END YEAR" and
@@ -987,15 +967,14 @@ class Menu(ctk.CTkFrame):
                 self.progressbar.set(0)
                 self.porcentaje.configure(text='0%')
                 
-                from __main__ import FEGA_REC_APP  # Referenciamos la clase que creamos arriba
-                
+                from __main__ import FEGA_REC_APP
                 t = Thread(
                     target=FEGA_REC_APP.main,
                     args=(
                         int(self.start_year_selector.get()),
                         int(self.end_year_selector.get()),
                         str(self.directory),
-                        str(provincias_sencillas[self.provincias.get()]),  # version simplificada
+                        str(provincias_sencillas[self.provincias.get()]),
                         str(user_sql_url),
                         self.clip,
                         str(ogr_path),
@@ -1027,11 +1006,11 @@ class Menu(ctk.CTkFrame):
         self.provincias.set("")
 
 
-# --------------------------
+# ------------------------------------------------------------------------------
 # EJECUCIÓN PRINCIPAL
-# --------------------------
+# ------------------------------------------------------------------------------
 if __name__ == '__main__':
-    # Si existe config.txt, lo leemos para cargar user_sql_url y ogr_path
+    # Leemos config.txt si existe
     if os.path.exists('./config/config.txt'):
         with open('./config/config.txt') as fd:
             lines = fd.readlines()

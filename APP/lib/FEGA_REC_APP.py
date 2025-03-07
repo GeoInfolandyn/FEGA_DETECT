@@ -111,9 +111,6 @@ def create_prov_dict(config):
     return prov
 
 
-import pandas as pd
-
-
 def load_rd(gpkg_path:str) -> list:
     """## LOAD rd
     Given the path of the gpkg file, returns a list of the layers in the gpkg file.
@@ -156,7 +153,7 @@ WHERE
     (dn_initialdate <= '{fecha_fin}' AND ((dn_enddate BETWEEN '{fecha_inicio}' AND '{fecha_fin}') or dn_enddate is null)) and
     (dn_initialdate_1 <= '{fecha_fin}' AND ((dn_enddate_1 BETWEEN '{fecha_inicio}' AND '{fecha_fin}') or dn_enddate_1 is null))
     AND provincia = {num_prov} 
-    AND uso_sigpac <> 'CA' AND uso_sigpac <> 'AG' AND uso_sigpac <> 'ZU' AND uso_sigpac <> 'ED' AND uso_sigpac <> 'ZC' AND uso_sigpac <> 'ZV' AND uso_sigpac <> 'IV'
+    AND uso_sigpac IN {usos_seleccionados}
     AND ST_AREA(ST_TRANSFORM(dn_geom,32630)) > 5000 
     
 """

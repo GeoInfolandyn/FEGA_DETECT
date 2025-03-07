@@ -131,13 +131,13 @@ def recintos():
     rc_df = []
     dif = fin+1-ini
     it = 12.5/dif
+    # usos_seleccionados = tuple(usos_seleccionados)
     for año in tqdm(range(int(ini), int(fin)+1)):
         año_s = str(año)
         año_f = str(año+1)
         fecha_inicio = date.fromisoformat(prov[provincia][1][1][año_s])
         fecha_fin = date.fromisoformat(prov[provincia][1][1][año_f])
         tqdm.write("Extrayendo la tabla rc_"+ str(provincia)+"_"+str(año)+ "...")
-        
         query = f"""SELECT
     DISTINCT(dn_oid),
     ST_MakeValid(ST_TRANSFORM(dn_geom,32630),'method=structure keepcollapsed=false') as dn_geom,
@@ -153,7 +153,7 @@ WHERE
     (dn_initialdate <= '{fecha_fin}' AND ((dn_enddate BETWEEN '{fecha_inicio}' AND '{fecha_fin}') or dn_enddate is null)) and
     (dn_initialdate_1 <= '{fecha_fin}' AND ((dn_enddate_1 BETWEEN '{fecha_inicio}' AND '{fecha_fin}') or dn_enddate_1 is null))
     AND provincia = {num_prov} 
-    AND uso_sigpac IN {usos_seleccionados}
+    AND uso_sigpac <> 'CA' AND uso_sigpac <> 'AG' AND uso_sigpac <> 'ZU' AND uso_sigpac <> 'ED' AND uso_sigpac <> 'ZC' AND uso_sigpac <> 'ZV' AND uso_sigpac <> 'IV'
     AND ST_AREA(ST_TRANSFORM(dn_geom,32630)) > 5000 
     
 """
@@ -174,8 +174,24 @@ WHERE
 def lineas():
     global percentaje
     ld_df = []
-    tqdm.write("Extrayendo la tabla ld_"+ str(provincia)+"_"+str(año)+ "...")
-    query = f"""
+    if ini in [2018, 2019]:
+        #### Take the input directory for 2018
+        ld_18 = input("Introduce el directorio de entrada de las lineas de declaracion del 18: ")
+        ld_19 = input("Introduce el directorio de entrada de las lineas de declaracion del 19: ")
+        ld_df.append(gpd.read_file(ld_18, layer = f'LD_{provincia}_2018'))
+        ld_df.append(gpd.read_file(ld_19, layer = f'LD_{provincia}_2019'))
+    dif = fin+1-ini
+    it = 12.5/dif    
+    for año in tqdm(range(int(ini), int(fin)+1)):
+        año_s = str(año)
+        fecha_inicio = date.fromisoformat(año_s+'-01-01')
+        fecha_fin = date.fromisoformat(año_s+'-12-31')
+        if año in [2018, 2019]:
+            pass
+            
+        else:
+            tqdm.write("Extrayendo la tabla ld_"+ str(provincia)+"_"+str(año)+ "...")
+            query = f"""
 SELECT         
     ld.dn_pk as ld_pk_{año},
     ld.parc_producto as parc_producto_{año},
@@ -185,7 +201,7 @@ SELECT
     ld.dn_enddate,
     ST_MakeValid(ST_TRANSFORM(dn_geom,32630),'method=structure keepcollapsed=false') as dn_geom,
     ST_AREA(ST_TRANSFORM(ld.dn_geom,32630)) as area_m2,
-    concat(provincia,'-',municipio,'-', agregado,'-',zona,'-',poligono,'-',parcela,'-',recinto) as id_recinto_{año}
+    concat(provincia,'-',municipio,'-', agregado,'-',zona,'-',poligono,'-',parcela,'-',recinto) as id_recinto_lineas_{año}
     FROM t$linea_declaracion AS ld
 WHERE 
     ((ld.dn_initialdate <= '{fecha_fin}' AND (ld.dn_enddate BETWEEN '{fecha_inicio}' AND '{fecha_fin}') OR ld.dn_enddate IS NULL) 
@@ -258,7 +274,7 @@ def filiformes(input_gdf):
             raise TypeError("Input must be convertible to a GeoDataFrame")
     
     # Make a copy to avoid modifying the original
-
+    gdf = input_gdf.copy()
     gdf['perimeter_area_ratio'] = gdf.geometry.length / gdf.geometry.area
     
     # Filter eligible geometries
@@ -505,7 +521,7 @@ def campos(overlay_layer,crono_gdb):
         resultado = ''
         for year in years:
             resultado += '_'
-            incid = str('NA' if pd.isna(row[f'incidencias_{year}']) else row[f'incidencias_{year}'])
+            incid = str('0' if pd.isna(row[f'incidencias_{year}']) else row[f'incidencias_{year}'])
             resultado += incid
         return resultado[1:]
 
@@ -517,16 +533,23 @@ def campos(overlay_layer,crono_gdb):
     overlay_layer['p_crono'] = overlay_layer.apply(lambda row: calcular_pcrono(row, range(ini, fin+1)), axis=1)
     overlay_layer['u_crono'] = overlay_layer.apply(lambda row: calcular_ucrono(row, range(ini, fin+1)), axis=1)
     overlay_layer['i_crono'] = overlay_layer.apply(lambda row: calcular_icrono(row, range(ini, fin+1)), axis=1)
-    overlay_layer['id_recinto'] = overlay_layer.apply(lambda row: row[f'id_recinto_{fin}'], axis=1)
+    ### take the last id recinto wich is not null 
+    overlay_layer['id_recinto'] = overlay_layer[[f'id_recinto_{year}' for year in range(ini, fin+1)]].bfill(axis=1).iloc[:, 0]
     
 
     campos_export = ['geometry', 'a_crono', 'p_crono', 'u_crono','i_crono', 'id_recinto']
     crono_fin = overlay_layer[campos_export]
     crono_fin = crono_fin.drop_duplicates(subset='geometry')  
 
-#### revisar con diego
-crono_fin.to_file(crono_gdb[crono_gdb['u_crono'].str.contains(f'{usos_seleccionados}')
-                            ], driver='GPKG', layer=f'CRONO_FIN_{roi}')
+    # Filter using all selected usos
+    usos_pattern = '|'.join(usos_seleccionados)
+    crono_fin_filtered = crono_fin[crono_fin['u_crono'].str.contains(usos_pattern)]
+    crono_fin_filtered.to_file(crono_gdb, driver='GPKG', layer=f'CRONO_FIN_{roi}')
+    
+    for uso in usos_seleccionados:
+        crono_fin_uso = crono_fin[crono_fin['u_crono'].str.contains(uso)]
+        crono_fin_uso.to_file(crono_gdb, driver='GPKG', layer=f'CRONO_{roi}_{uso}')
+        
 
 def clip(list_dfs, clip):
     for i in range(len(list_dfs)):

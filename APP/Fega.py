@@ -1,40 +1,26 @@
+# fega_gui.py
 # -*- coding: utf-8 -*-
 
 import customtkinter as ctk
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk
+from tkinter import messagebox
+from PIL import Image
 from customtkinter import filedialog
+from tkinter import simpledialog
 from tkcalendar import *
 from ttkwidgets.autocomplete import AutocompleteCombobox
-from PIL import Image
 import subprocess
-import sys
-import os
+import sys, os
 from threading import Thread
+import lib.FEGA_REC_APP as FEGA_REC_APP
+import lib.DESCARGA_GUI as DESCARGA_GUI
 from datetime import datetime
 
-import geopandas as gpd
-from tqdm import tqdm
-from datetime import date
-from sqlalchemy import create_engine
-import shapely
-from shapely.geometry import MultiPolygon, box, LineString
-from shapely.wkt import loads, dumps
-import numpy as np
-import pandas as pd
-import warnings
-from scipy.spatial import ConvexHull
+# Importamos el módulo de procesado (en otro archivo)
+# Ajusta la ruta o nombre según tu proyecto
 
-# ------------------------------------------------------------------------------
-# CONFIGURACIONES GLOBALES
-# ------------------------------------------------------------------------------
-ctk.set_default_color_theme("green")
-ctk.set_appearance_mode('light')
-
-warnings.filterwarnings('ignore', 'GeoSeries.notna', UserWarning)
-warnings.filterwarnings("ignore", message="`unary_union` returned None due to all-None GeoSeries")
-
-# DICCIONARIOS Y VARIABLES GLOBALES
+# DICCIONARIOS PARA LA INTERFAZ
 provincias_españa = [
     "Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", 
     "Badajoz", "Baleares", "Barcelona", "Burgos", 
@@ -109,7 +95,6 @@ provincias_sencillas = {
     'Zaragoza': 'Zaragoza'
 }
 
-# Diccionario de usos del suelo (para checkboxes en la GUI)
 usos_suelo = {
     "AG": "CORRIENTES Y SUPERFICIES DE AGUA",
     "CA": "VIALES",
@@ -147,446 +132,24 @@ usos_suelo = {
     "OP": "Otros cultivos Permanentes"
 }
 
-# Variables globales para configuración
+# Variables globales para la configuración
 user_sql_url = None
 ogr_path = None
 
-# ------------------------------------------------------------------------------
-# FEGA_REC_APP: Lógica principal de procesamiento
-# ------------------------------------------------------------------------------
-class FEGA_REC_APP:
-    message = ''
-    percentaje = 0
-    outpath = ''
+# ----------------------------------------------------------------
+# CLASE PRINCIPAL DE LA APP
+# ----------------------------------------------------------------
 
-    @staticmethod
-    def config_csv(csv_path: str) -> dict:
-        df = pd.read_csv(csv_path, delimiter=';')
-        years = [str(i) for i in range(2020, 2024 + 1)]
-        relevant_columns = ['Comunidad_autonoma', 'Nombre_base_datos'] + years
-        df = df[relevant_columns]
-        config = {}
-        for _, row in df.iterrows():
-            comunidad = row['Comunidad_autonoma']
-            database_name = row['Nombre_base_datos']
-            dates = {year: row[year] for year in years}
-            config[comunidad] = (database_name, dates)
-        return config
-    
-    @staticmethod
-    def create_prov_dict(config):
-        return {
-            'Alava':        (1,  config['PAIS-VASCO']),
-            'Albacete':     (2,  config['CASTILLA-LA-MANCHA']),
-            'Alicante':     (3,  config['VALENCIANA']),
-            'Almeria':      (4,  config['ANDALUCÍA']),
-            'Avila':        (5,  config['CASTILLA-Y-LEÓN']),
-            'Badajoz':      (6,  config['EXTREMADURA']),
-            'Baleares':     (7,  config['BALEARES']),
-            'Barcelona':    (8,  config['CATALUÑA']),
-            'Burgos':       (9,  config['CASTILLA-Y-LEÓN']),
-            'Caceres':      (10, config['EXTREMADURA']),
-            'Cadiz':        (11, config['ANDALUCÍA']),
-            'Castellon':    (12, config['VALENCIANA']),
-            'CiudadReal':   (13, config['CASTILLA-LA-MANCHA']),
-            'Cordoba':      (14, config['ANDALUCÍA']),
-            'Coruña':       (15, config['GALICIA']),
-            'Cuenca':       (16, config['CASTILLA-LA-MANCHA']),
-            'Girona':       (17, config['CATALUÑA']),
-            'Granada':      (18, config['ANDALUCÍA']),
-            'Guadalajara':  (19, config['CASTILLA-LA-MANCHA']),
-            'Guipuzcoa':    (20, config['PAIS-VASCO']),
-            'Huelva':       (21, config['ANDALUCÍA']),
-            'Huesca':       (22, config['ARAGÓN']),
-            'Jaen':         (23, config['ANDALUCÍA']),
-            'Leon':         (24, config['CASTILLA-Y-LEÓN']),
-            'Lleida':       (25, config['CATALUÑA']),
-            'LaRioja':      (26, config['LA-RIOJA']),
-            'Lugo':         (27, config['GALICIA']),
-            'Madrid':       (28, config['MADRID']),
-            'Malaga':       (29, config['ANDALUCÍA']),
-            'Murcia':       (30, config['MURCIA']),
-            'Navarra':      (31, config['NAVARRA']),
-            'Ourense':      (32, config['GALICIA']),
-            'Asturias':     (33, config['ASTURIAS']),
-            'Palencia':     (34, config['CASTILLA-Y-LEÓN']),
-            'LasPalmas':    (35, config['CANARIAS']),
-            'Pontevedra':   (36, config['GALICIA']),
-            'Salamanca':    (37, config['CASTILLA-Y-LEÓN']),
-            'Tenerife':     (38, config['CANARIAS']),
-            'Cantabria':    (39, config['CANTABRIA']),
-            'Segovia':      (40, config['CASTILLA-Y-LEÓN']),
-            'Sevilla':      (41, config['ANDALUCÍA']),
-            'Soria':        (42, config['CASTILLA-Y-LEÓN']),
-            'Tarragona':    (43, config['CATALUÑA']),
-            'Teruel':       (44, config['ARAGÓN']),
-            'Toledo':       (45, config['CASTILLA-LA-MANCHA']),
-            'Valencia':     (46, config['VALENCIANA']),
-            'Valladolid':   (47, config['CASTILLA-Y-LEÓN']),
-            'Vizcaya':      (48, config['PAIS-VASCO']),
-            'Zamora':       (49, config['CASTILLA-Y-LEÓN']),
-            'Zaragoza':     (50, config['ARAGÓN']),
-        }
-    
-    @staticmethod
-    def corregir_geometrias(gdf):
-        gdf = gdf.copy(deep=True)
-        gdf = gdf[gdf.geometry.notna()]
-        gdf = gdf[~gdf.geometry.is_empty]
-        
-        def _corregir(geom):
-            if not geom.is_valid:
-                geom = shapely.make_valid(geom)
-            geom = shapely.force_2d(geom)
-            geom = shapely.simplify(geom, tolerance=0.1)
-            geom = shapely.set_precision(geom, grid_size=0.1)
-            if geom.geom_type in ['MultiPolygon', 'MultiLineString']:
-                geom = shapely.ops.unary_union(geom)
-                if geom.geom_type == 'GeometryCollection':
-                    geom = shapely.geometry.MultiPolygon(
-                        [g for g in geom.geoms if isinstance(g, (shapely.geometry.Polygon, shapely.geometry.MultiPolygon))]
-                    )
-            geom = shapely.set_precision(geom, grid_size=2)
-            return geom
-        
-        gdf.geometry = gdf.geometry.apply(_corregir)
-        return gdf
-    
-    @staticmethod
-    def filiformes(input_gdf):
-        gdf = input_gdf.copy()
-        gdf['perimeter_area_ratio'] = gdf.geometry.length / gdf.geometry.area
-        mask = gdf['perimeter_area_ratio'] <= 4
-        gdf = gdf.drop(columns=['perimeter_area_ratio'])
-        return gdf[mask].reset_index(drop=True)
-    
-    @staticmethod
-    def eliminate_overlaps_geodataframe(gdf):
-        gdf = gdf.copy()
-        if not isinstance(gdf, gpd.GeoDataFrame):
-            raise TypeError("Input must be a GeoDataFrame")
-        gdf['area'] = gdf.geometry.area
-        to_delete = []
-        sindex = gdf.sindex
-        
-        for idx1, geom1 in enumerate(gdf.geometry):
-            area1 = gdf.iloc[idx1].area
-            possible_matches_idx = list(sindex.intersection(geom1.bounds))
-            for idx2 in possible_matches_idx:
-                if idx2 != idx1:
-                    geom2 = gdf.geometry.iloc[idx2]
-                    area2 = gdf.iloc[idx2].area
-                    if geom1.intersects(geom2):
-                        try:
-                            intersection_area = geom1.intersection(geom2).area
-                            if intersection_area > min(area1, area2) * 0.01:
-                                if area1 > area2:
-                                    to_delete.append(idx2)
-                                else:
-                                    to_delete.append(idx1)
-                                    break
-                        except Exception:
-                            continue
-        gdf = gdf.drop(index=to_delete).reset_index(drop=True)
-        return gdf
-    
-    @staticmethod
-    def clip_dfs(list_dfs, clip_geom):
-        for i in range(len(list_dfs)):
-            list_dfs[i] = gpd.clip(list_dfs[i], clip_geom)
-        return list_dfs
-    
-    @staticmethod
-    def main(start, end, out_dir, provi, user_url, clip_path=None, ogr2ogr_path=None, usos_sel=None):
-        from tkinter import messagebox
-        
-        if usos_sel is None:
-            usos_sel = ['PS', 'PA', 'PR', 'FY', 'OV', 'VI']
-        
-        FEGA_REC_APP.message = ''
-        FEGA_REC_APP.percentaje = 0
-        FEGA_REC_APP.outpath = ''
-        
-        ini = start
-        fin = end
-        provincia = provi
-        outdir = out_dir
-        
-        FEGA_REC_APP.message = "Cargando configuración..."
-        config = FEGA_REC_APP.config_csv(r'./config/CSV_CONFIG.csv')
-        
-        prov_dict = FEGA_REC_APP.create_prov_dict(config)
-        
-        if provincia not in prov_dict:
-            messagebox.showerror("Error", f"La provincia {provincia} no está en el diccionario.")
-            return
-        num_prov, (db_name, dates_dict) = prov_dict[provincia]
-        
-        # Conexión a la BBDD
-        url_db = f"{user_url}/{db_name}"
-        sql_engine = create_engine(url_db)
-        
-        FEGA_REC_APP.message = 'Extrayendo recintos...'
-        recintos_df = []
-        dif = fin + 1 - ini
-        it = 12.5 / dif if dif != 0 else 12.5
-        
-        for year in tqdm(range(ini, fin + 1)):
-            year_s = str(year)
-            next_s = str(year + 1)
-            fecha_inicio = date.fromisoformat(dates_dict[year_s])
-            fecha_fin = date.fromisoformat(dates_dict[next_s]) if next_s in dates_dict else date.fromisoformat(dates_dict[year_s])
-            
-            query = f"""
-SELECT DISTINCT(dn_oid),
-       ST_MakeValid(ST_TRANSFORM(dn_geom,32630),'method=structure keepcollapsed=false') as dn_geom,
-       dn_initialdate,
-       dn_enddate,
-       cap_prevalente as cp_{year},
-       uso_sigpac as uso_sigpac_{year},
-       incidencias as incidencias_{year},
-       concat(provincia,'-',municipio,'-', agregado,'-',zona,'-',poligono,'-',parcela,'-',recinto) as id_recinto_{year},
-       ST_AREA(ST_TRANSFORM(dn_geom,32630)) as area_m2
-FROM t$recinto_ex
-WHERE (dn_initialdate <= '{fecha_fin}' AND
-      ((dn_enddate BETWEEN '{fecha_inicio}' AND '{fecha_fin}') or dn_enddate is null))
-  AND (dn_initialdate_1 <= '{fecha_fin}' AND
-      ((dn_enddate_1 BETWEEN '{fecha_inicio}' AND '{fecha_fin}') or dn_enddate_1 is null))
-  AND provincia = {num_prov}
-  AND uso_sigpac <> 'CA' AND uso_sigpac <> 'AG' AND uso_sigpac <> 'ZU' 
-  AND uso_sigpac <> 'ED' AND uso_sigpac <> 'ZC' AND uso_sigpac <> 'ZV' AND uso_sigpac <> 'IV'
-  AND ST_AREA(ST_TRANSFORM(dn_geom,32630)) > 5000;
-"""
-            try:
-                df_tmp = gpd.GeoDataFrame.from_postgis(query, sql_engine, geom_col='dn_geom')
-                df_tmp = df_tmp[df_tmp['dn_geom'].notna()]
-                df_tmp['dn_initialdate'] = df_tmp['dn_initialdate'].astype(str)
-                df_tmp['dn_enddate'] = df_tmp['dn_enddate'].astype(str)
-                recintos_df.append(df_tmp)
-            except Exception as e:
-                tqdm.write(f"Error al extraer recintos de {year}: {e}")
-            FEGA_REC_APP.percentaje += it
-        
-        FEGA_REC_APP.message = 'Extrayendo líneas de declaración...'
-        lineas_df = []
-        it_lineas = 12.5 / dif if dif != 0 else 12.5
-        
-        for year in tqdm(range(ini, fin + 1)):
-            year_s = str(year)
-            next_s = str(year + 1)
-            fecha_inicio = date.fromisoformat(dates_dict[year_s])
-            fecha_fin = date.fromisoformat(dates_dict[next_s]) if next_s in dates_dict else date.fromisoformat(dates_dict[year_s])
-            
-            query = f"""
-SELECT ld.dn_pk as ld_pk_{year},
-       ld.parc_producto as parc_producto_{year},
-       ld.dn_oid,
-       ld.dn_surface,
-       ld.dn_initialdate,
-       ld.dn_enddate,
-       ST_MakeValid(ST_TRANSFORM(ld.dn_geom,32630),'method=structure keepcollapsed=false') as dn_geom,
-       ST_AREA(ST_TRANSFORM(ld.dn_geom,32630)) as area_m2,
-       concat(provincia,'-',municipio,'-', agregado,'-',zona,'-',poligono,'-',parcela,'-',recinto) as id_recinto_{year}
-FROM t$linea_declaracion AS ld
-WHERE ((ld.dn_initialdate <= '{fecha_fin}' AND 
-       (ld.dn_enddate BETWEEN '{fecha_inicio}' AND '{fecha_fin}') OR ld.dn_enddate IS NULL) 
-   AND ld.provincia = {num_prov})
-  AND (ST_AREA(ST_TRANSFORM(ld.dn_geom,32630)) > 5000);
-"""
-            try:
-                df_tmp = gpd.GeoDataFrame.from_postgis(query, sql_engine, geom_col='dn_geom')
-                df_tmp = df_tmp[df_tmp['dn_geom'].notna()]
-                df_tmp['dn_initialdate'] = df_tmp['dn_initialdate'].astype(str)
-                df_tmp['dn_enddate'] = df_tmp['dn_enddate'].astype(str)
-                lineas_df.append(df_tmp)
-            except Exception as e:
-                tqdm.write(f"Error al extraer lineas de {year}: {e}")
-            FEGA_REC_APP.percentaje += it_lineas
-        
-        # 6) Si hay un shapefile de clip, recortamos
-        if clip_path:
-            FEGA_REC_APP.message = "Clipping con ROI..."
-            cliped = gpd.read_file(clip_path)
-            cliped = cliped.to_crs(epsg=32630)
-            recintos_df = FEGA_REC_APP.clip_dfs(recintos_df, cliped)
-            lineas_df = FEGA_REC_APP.clip_dfs(lineas_df, cliped)
-        
-        FEGA_REC_APP.message = "Creando recintos declarados..."
-        rd_dir = os.path.join(outdir, f"{num_prov}.gpkg")
-        layers_out = []
-        cur_year = ini
-        it_rd = 12.5 / len(recintos_df) if recintos_df else 1
-        
-        for i in tqdm(range(len(recintos_df))):
-            rc = gpd.GeoDataFrame(recintos_df[i], geometry='dn_geom', crs=32630)
-            rc = FEGA_REC_APP.corregir_geometrias(rc)
-            rc = FEGA_REC_APP.filiformes(rc)
-            rc = FEGA_REC_APP.eliminate_overlaps_geodataframe(rc)
-            
-            ld = gpd.GeoDataFrame(lineas_df[i], geometry='dn_geom', crs=32630)
-            ld = FEGA_REC_APP.corregir_geometrias(ld)
-            ld = FEGA_REC_APP.filiformes(ld)
-            ld = FEGA_REC_APP.eliminate_overlaps_geodataframe(ld)
-            
-            over_df = gpd.overlay(rc, ld, how='union', make_valid=True, keep_geom_type=True)
-            over_df = FEGA_REC_APP.filiformes(over_df)
-            over_df = FEGA_REC_APP.corregir_geometrias(over_df)
-            over_df = over_df.drop_duplicates(subset='geometry')
-            
-            campos_export = [
-                f'uso_sigpac_{cur_year}',
-                f'parc_producto_{cur_year}',
-                f'incidencias_{cur_year}',
-                f'cp_{cur_year}',
-                f'id_recinto_{cur_year}',
-                'geometry'
-            ]
-            over_df = over_df[campos_export]
-            over_df[f'incidencias_{cur_year}'] = over_df[f'incidencias_{cur_year}'].astype(str)
-            over_df = gpd.GeoDataFrame(over_df, geometry='geometry', crs=rc.crs)
-            
-            # clasificacion en 'est_aband_{cur_year}'
-            over_df[f'est_aband_{cur_year}'] = over_df.apply(
-                lambda row: ('SLD' if pd.isna(row[f'parc_producto_{cur_year}']) or row[f'parc_producto_{cur_year}'] == 0 else
-                             'A'   if '117' in row[f'incidencias_{cur_year}'] or '199' in row[f'incidencias_{cur_year}'] else
-                             'M5'  if '177' in row[f'incidencias_{cur_year}'] or '186' in row[f'incidencias_{cur_year}'] else
-                             'NA'  if row[f'uso_sigpac_{cur_year}'] == 'OV' and row[f'parc_producto_{cur_year}'] == 101 else
-                             'PA'  if row[f'uso_sigpac_{cur_year}'] == 'OV' and row[f'parc_producto_{cur_year}'] != 101 else
-                             'NA_150' if row[f'uso_sigpac_{cur_year}'] == 'OV' and row[f'parc_producto_{cur_year}'] == 150 else
-                             'SRC' if pd.isna(row[f'uso_sigpac_{cur_year}']) else
-                             'NA'  if (
-                                 row[f'uso_sigpac_{cur_year}'] == 'FY' and
-                                 (
-                                     row[f'parc_producto_{cur_year}'] in [104,105,106,107,108,109,110,111,112,113] or
-                                     row[f'parc_producto_{cur_year}'] in [200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218] or
-                                     row[f'parc_producto_{cur_year}'] in list(range(300,350))
-                                 )
-                             ) else
-                             'NA_150' if row[f'uso_sigpac_{cur_year}'] == 'FY' and row[f'parc_producto_{cur_year}'] == 150 else
-                             'NA' if row[f'uso_sigpac_{cur_year}'] in ['PR','PS','PA'] and row[f'parc_producto_{cur_year}'] in [61,62,63,64,65] else
-                             'PA' if row[f'uso_sigpac_{cur_year}'] in ['PR','PS','PA'] and not (61 <= row[f'parc_producto_{cur_year}'] <= 65) else
-                             'NA_150' if row[f'uso_sigpac_{cur_year}'] in ['PR','PS','PA'] and row[f'parc_producto_{cur_year}'] == 150 else
-                             'Uso_alt'),
-                axis=1
-            )
-            
-            over_df['geometry'] = over_df['geometry'].apply(
-                lambda x: MultiPolygon([x]) if x.geom_type == 'Polygon' else x
-            )
-            
-            layer_name = f'rd_{num_prov}_{cur_year}'
-            over_df.to_file(rd_dir, driver='GPKG', layer=layer_name)
-            layers_out.append(layer_name)
-            cur_year += 1
-            FEGA_REC_APP.percentaje += it_rd
-        
-        FEGA_REC_APP.message = "Creando capa CRONO..."
-        def overlay_crono(layers, gpkg_path):
-            if len(layers) < 2:
-                return layers[0] if layers else None
-            overlay_type = "union"
-            input_layer = layers[0]
-            for i in range(1, len(layers)):
-                output_layer = f"{input_layer}_o_{layers[i]}"
-                try:
-                    in_df = gpd.read_file(gpkg_path, layer=input_layer)
-                    in_df = FEGA_REC_APP.filiformes(in_df)
-                    in_df = FEGA_REC_APP.corregir_geometrias(in_df)
-                    in_df = in_df[in_df.geom_type.isin(['Polygon','MultiPolygon'])]
-                    
-                    cur_df = gpd.read_file(gpkg_path, layer=layers[i])
-                    cur_df = FEGA_REC_APP.filiformes(cur_df)
-                    cur_df = FEGA_REC_APP.corregir_geometrias(cur_df)
-                    cur_df = cur_df[cur_df.geom_type.isin(['Polygon','MultiPolygon'])]
-                    
-                    over_df = gpd.overlay(in_df, cur_df, how=overlay_type, make_valid=True, keep_geom_type=True)
-                    over_df = FEGA_REC_APP.corregir_geometrias(over_df)
-                    over_df = FEGA_REC_APP.filiformes(over_df)
-                    over_df = over_df[over_df.geom_type.isin(['Polygon','MultiPolygon'])]
-                    over_df.to_file(gpkg_path, driver='GPKG', layer=output_layer)
-                except Exception as e:
-                    print(f"Error en overlay_crono: {e}")
-                input_layer = output_layer
-            return input_layer
-        
-        final_layer = overlay_crono(layers_out, rd_dir)
-        
-        FEGA_REC_APP.message = "Exportando cronología final..."
-        if final_layer:
-            df_crono = gpd.read_file(rd_dir, layer=final_layer)
-            
-            def calcular_acrono(row, years):
-                res = ''
-                for y in years:
-                    aband = row.get(f'est_aband_{y}', 'None')
-                    if aband == 'A':
-                        res += '0'
-                    elif aband == 'NA':
-                        res += '1'
-                    elif aband == 'SLD':
-                        res += '2'
-                    elif aband == 'SRC':
-                        res += '3'
-                    elif aband == 'PA':
-                        res += '4'
-                    elif aband == 'None':
-                        res += '9'
-                    else:
-                        res += '5'
-                return res
-            
-            def calcular_pcrono(row, years):
-                res = []
-                for y in years:
-                    val = row.get(f'parc_producto_{y}', np.nan)
-                    if pd.isna(val):
-                        val = 0
-                    res.append(str(int(val)))
-                return '_'.join(res)
-            
-            def calcular_ucrono(row, years):
-                res = []
-                for y in years:
-                    uso = row.get(f'uso_sigpac_{y}', 'NU')
-                    res.append(uso if pd.notna(uso) else 'NU')
-                return '_'.join(res)
-            
-            def calcular_icrono(row, years):
-                res = []
-                for y in years:
-                    inc = row.get(f'incidencias_{y}', 'NA')
-                    res.append(inc if pd.notna(inc) else 'NA')
-                return '_'.join(res)
-            
-            years_list = list(range(ini, fin + 1))
-            df_crono['a_crono'] = df_crono.apply(lambda r: calcular_acrono(r, years_list), axis=1)
-            df_crono['p_crono'] = df_crono.apply(lambda r: calcular_pcrono(r, years_list), axis=1)
-            df_crono['u_crono'] = df_crono.apply(lambda r: calcular_ucrono(r, years_list), axis=1)
-            df_crono['i_crono'] = df_crono.apply(lambda r: calcular_icrono(r, years_list), axis=1)
-            df_crono['id_recinto'] = df_crono.apply(lambda r: r.get(f'id_recinto_{fin}', ''), axis=1)
-            
-            # Filtrar por usos_sel si fuera necesario:
-            # pattern = '|'.join(usos_sel)
-            # df_crono = df_crono[df_crono['u_crono'].str.contains(pattern)]
-            
-            final_export_layer = f"CRONO_FIN_{num_prov}"
-            campos_export = ['geometry','a_crono','p_crono','u_crono','i_crono','id_recinto']
-            df_crono[campos_export].to_file(rd_dir, driver='GPKG', layer=final_export_layer)
-        
-        FEGA_REC_APP.percentaje = 100
-        FEGA_REC_APP.message = "Proceso finalizado"
-        FEGA_REC_APP.outpath = rd_dir
+ctk.set_default_color_theme("green")
+ctk.set_appearance_mode('light')
 
-
-# ------------------------------------------------------------------------------
-# CLASE PRINCIPAL: Fega
-# ------------------------------------------------------------------------------
 class Fega(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("FEGAPP")
         self.geometry("750x550")
-        self.iconbitmap("./img/IconoFegaApp.ico")
+        # Ajusta tu ruta de icono si la tienes
+        # self.iconbitmap("./img/IconoFegaApp.ico")  
         self.resizable(0,0)
         
         self.grid_columnconfigure((0,1), weight=1)
@@ -598,8 +161,13 @@ class Fega(ctk.CTk):
         self.createWidgets()
         
     def createWidgets(self):
-        img_logo = ctk.CTkImage(light_image=Image.open("./img/composicion.png"), size=(300,100))
-        self.logo = ctk.CTkLabel(self, image=img_logo, text="")
+        # Ajusta tu imagen y su ruta si la tienes
+        try:
+            img_logo = ctk.CTkImage(light_image=Image.open("./img/composicion.png"), size=(300,100))
+        except:
+            img_logo = None
+        
+        self.logo = ctk.CTkLabel(self, image=img_logo, text="") if img_logo else ctk.CTkLabel(self, text="FEGAApp")
         self.logo.grid(row=0, column=0, padx=10, sticky='wns')
         
         self.btn_config = ctk.CTkButton(
@@ -625,11 +193,12 @@ class Fega(ctk.CTk):
         SentinelIndexProcessorApp(top).pack(expand=True, fill="both")
         top.wm_transient(self)
 
-
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------
 # CLASE PARA DESCARGA Y PROCESADO SENTINEL
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------
+
 class SentinelIndexProcessorApp(ctk.CTkFrame):
+    """Ventana secundaria para procesar / descargar imágenes Sentinel."""
     def __init__(self, master):
         super().__init__(master)
         self.master = master
@@ -682,13 +251,14 @@ class SentinelIndexProcessorApp(ctk.CTkFrame):
         ctk.CTkButton(self, text="Process Sentinel-2 Data", fg_color="Blue", command=self.process_data).grid(row=8, column=0, columnspan=3, pady=20)
 
     def process_data(self):
+        """Ejemplo de comando para lanzar un script externo que haga la descarga/procesado."""
         if not all([self.start_date_var.get(), self.end_date_var.get(), self.output_dir_var.get(), self.roi.get()]):
             messagebox.showerror("Error", "Please fill all required fields")
             return
         try:
             cmd = [
                 sys.executable,
-                r"lib/descarga_planet.py",
+                r"lib/descarga_planet.py",  # Ajusta la ruta al script que hagas servir
                 self.output_dir_var.get(),
                 self.start_date_var.get(),
                 self.end_date_var.get(),
@@ -743,6 +313,7 @@ class SentinelIndexProcessorApp(ctk.CTkFrame):
             self.roi.delete(0, tk.END)
 
     def open_calendar(self, date_type):
+        """Ejemplo de calendario sencillo para elegir fecha."""
         top = ctk.CTkToplevel(self)
         top.title("Select Date")
         cal_frame = ctk.CTkFrame(top)
@@ -773,13 +344,15 @@ class SentinelIndexProcessorApp(ctk.CTkFrame):
         ctk.CTkButton(cal_frame, text="Select", command=set_date).grid(row=1, column=1, pady=10)
 
 
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------
 # MENÚ LATERAL
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------
+
 class Menu(ctk.CTkFrame):
+    """Menú principal para configurar parámetros y lanzar el proceso FEGA_REC_APP."""
     def __init__(self, master):
         super().__init__(master)
-        # Ajustamos la rejilla para que haya espacio
+        
         self.grid_columnconfigure([i for i in range(4)], weight=1)
         self.grid_rowconfigure([i for i in range(8)], weight=1)
         
@@ -787,7 +360,7 @@ class Menu(ctk.CTkFrame):
         self.clip = None
         self.directory = ""
         
-        self.usos_open = False  # Para controlar si el frame de usos está desplegado
+        self.usos_open = False  # para controlar despliegue de frame con usos
         
         self.createWidgets()
     
@@ -824,7 +397,7 @@ class Menu(ctk.CTkFrame):
         self.entry_dir.grid(row=1, column=1, sticky="we", columnspan=3, padx=10)
         self.entry_dir.configure(state="disabled")
         
-        # Provincia
+        # Provincias
         self.prov_label = ctk.CTkLabel(self, text="Select Province", font=('Helvetica', 15, "bold"))
         self.prov_label.grid(row=2, column=0, sticky="we", padx=40)
         
@@ -851,7 +424,7 @@ class Menu(ctk.CTkFrame):
         self.entry_clip.grid(row=3, column=1, sticky="we", columnspan=3, padx=10)
         self.entry_clip.configure(state="disabled")
         
-        # DESPLEGABLE PARA USOS DEL SUELO (checkboxes con scroll)
+        # DESPLEGABLE PARA USOS
         self.usos_button = ctk.CTkButton(
             self,
             text="▼  Select Land Uses",
@@ -860,10 +433,9 @@ class Menu(ctk.CTkFrame):
         )
         self.usos_button.grid(row=4, column=0, sticky="we", padx=40, columnspan=4, pady=(5,5))
         
-        # Frame oculto con scroll y checkboxes
         self.usos_frame = ctk.CTkScrollableFrame(self, width=320, height=120, label_text="Select Land Uses:")
         self.usos_frame.grid(row=5, column=0, columnspan=4, sticky="nwe", padx=40, pady=5)
-        self.usos_frame.grid_remove()  # lo ocultamos de inicio
+        self.usos_frame.grid_remove()
         
         self.usos_vars = {}
         for code, desc in usos_suelo.items():
@@ -913,19 +485,16 @@ class Menu(ctk.CTkFrame):
     def toggle_usos(self):
         """Muestra/oculta el frame con checkboxes de usos."""
         if self.usos_open:
-            # Ocultamos el frame
             self.usos_frame.grid_remove()
-            # Actualizamos el texto del botón
             self.usos_button.configure(text="▼  Select Land Uses")
             self.usos_open = False
-            # Guardar selección en self.selected_usos
+            # Guardamos la selección
             self.selected_usos.clear()
             for code, var in self.usos_vars.items():
                 if var.get():
                     self.selected_usos.append(code)
             print("Usos seleccionados:", self.selected_usos)
         else:
-            # Mostramos el frame
             self.usos_frame.grid()
             self.usos_button.configure(text="▲  Select Land Uses")
             self.usos_open = True
@@ -950,7 +519,7 @@ class Menu(ctk.CTkFrame):
     def startProcess(self):
         global user_sql_url, ogr_path
         
-        # Si el dropdown de usos estaba abierto, lo cerramos para asegurar la recogida final
+        # Si el desplegable de usos está abierto, lo cerramos para que se guarde la selección
         if self.usos_open:
             self.toggle_usos()
         
@@ -967,7 +536,7 @@ class Menu(ctk.CTkFrame):
                 self.progressbar.set(0)
                 self.porcentaje.configure(text='0%')
                 
-                from __main__ import FEGA_REC_APP
+                # Iniciamos el proceso en otro hilo
                 t = Thread(
                     target=FEGA_REC_APP.main,
                     args=(
@@ -989,7 +558,7 @@ class Menu(ctk.CTkFrame):
             messagebox.showerror('Configuration alert', 'You must set the configuration path before starting the process')
     
     def check_thread(self, thread):
-        from __main__ import FEGA_REC_APP
+        """Comprueba estado del hilo y actualiza la barra de progreso usando FEGA_REC_APP."""
         if thread.is_alive():
             self.progressbar.set(FEGA_REC_APP.percentaje / 100)
             self.porcentaje.configure(text=f'{FEGA_REC_APP.message} - {round(FEGA_REC_APP.percentaje,1)}%')
@@ -1006,11 +575,11 @@ class Menu(ctk.CTkFrame):
         self.provincias.set("")
 
 
-# ------------------------------------------------------------------------------
-# EJECUCIÓN PRINCIPAL
-# ------------------------------------------------------------------------------
+# ----------------------------------------------------------------
+# EJECUCIÓN PRINCIPAL (solo la GUI)
+# ----------------------------------------------------------------
 if __name__ == '__main__':
-    # Leemos config.txt si existe
+    # Si existe config.txt, lo leemos para cargar user_sql_url y ogr_path
     if os.path.exists('./config/config.txt'):
         with open('./config/config.txt') as fd:
             lines = fd.readlines()

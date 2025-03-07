@@ -16,9 +16,6 @@ import geopandas as gpd
 import warnings
 import sys
 import argparse
-
-
-
 import subprocess
 warnings.filterwarnings('ignore')
 

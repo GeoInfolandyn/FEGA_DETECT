@@ -14,6 +14,44 @@ import sys
 from shapely.geometry import box, LineString
 from scipy.spatial import ConvexHull
 
+usos_suelo = {
+    "AG": "CORRIENTES Y SUPERFICIES DE AGUA",
+    "CA": "VIALES",
+    "CI": "CITRICOS",
+    "CO": "CONTORNO OLIVAR",
+    "ED": "EDIFICACIONES",
+    "FO": "FORESTAL",
+    "FY": "FRUTALES",
+    "IM": "IMPRODUCTIVOS",
+    "IV": "INVERNADEROS Y CULTIVOS BAJO PLASTICO",
+    "OF": "OLIVAR - FRUTAL",
+    "OV": "OLIVAR",
+    "PA": "PASTO CON ARBOLADO",
+    "PR": "PASTO ARBUSTIVO",
+    "PS": "PASTIZAL",
+    "TA": "TIERRAS ARABLES",
+    "TH": "HUERTA",
+    "VF": "VIÑEDO - FRUTAL",
+    "VI": "VIÑEDO",
+    "VO": "VIÑEDO - OLIVAR",
+    "ZC": "ZONA CONCENTRADA NO INCLUIDA EN LA ORTOF",
+    "ZU": "ZONA URBANA",
+    "ZV": "ZONA CENSURADA",
+    "FS": "FRUTOS SECOS",
+    "FL": "FRUTOS SECOS Y OLIVAR",
+    "FV": "FRUTOS SECOS Y VIÑEDO",
+    "IS": "ISLAS",
+    "OC": "Asociación Olivar-Cítricos",
+    "CV": "Asociación Cítricos-Viñedo",
+    "CF": "Asociación Cítricos-Frutales",
+    "CS": "Asociación Cítricos-Frutales de cáscara",
+    "FF": "Asociación Frutales-Frutales de cáscara",
+    "EP": "ELEMENTO DEL PAISAJE",
+    "MT": "MATORRAL",
+    "OP": "Otros cultivos Permanentes", 
+}
+
+
 
 # import arcpy 
 warnings.filterwarnings('ignore', 'GeoSeries.notna', UserWarning)
@@ -543,12 +581,13 @@ def campos(overlay_layer,crono_gdb):
 
     # Filter using all selected usos
     usos_pattern = '|'.join(usos_seleccionados)
+    print(usos_pattern)
     crono_fin_filtered = crono_fin[crono_fin['u_crono'].str.contains(usos_pattern)]
     crono_fin_filtered.to_file(crono_gdb, driver='GPKG', layer=f'CRONO_FIN_{roi}')
-    
-    for uso in usos_seleccionados:
-        crono_fin_uso = crono_fin[crono_fin['u_crono'].str.contains(uso)]
-        crono_fin_uso.to_file(crono_gdb, driver='GPKG', layer=f'CRONO_{roi}_{uso}')
+    if not usos_seleccionados == "TODOS":
+        for uso in usos_seleccionados:
+            crono_fin_uso = crono_fin[crono_fin['u_crono'].str.contains(uso)]
+            crono_fin_uso.to_file(crono_gdb, driver='GPKG', layer=f'CRONO_{roi}_{uso}')
         
 
 def clip(list_dfs, clip):
@@ -565,7 +604,11 @@ def main(start, end, out_dir, provi, user_url, clip_path = None, ogr2ogr_path = 
     fin = end
     provincia = provi
     outdir = out_dir
-    usos_seleccionados = usos_sel
+    if usos_sel == "TODOS":
+        # print(TODOS)
+        usos_seleccionados = list(usos_suelo.keys())
+    else:
+        usos_seleccionados = usos_sel
 
     config = config_csv(r'./config/CSV_CONFIG.csv')
     prov = create_prov_dict(config)

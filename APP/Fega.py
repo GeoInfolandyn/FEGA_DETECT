@@ -129,7 +129,8 @@ usos_suelo = {
     "FF": "Asociación Frutales-Frutales de cáscara",
     "EP": "ELEMENTO DEL PAISAJE",
     "MT": "MATORRAL",
-    "OP": "Otros cultivos Permanentes"
+    "OP": "Otros cultivos Permanentes", 
+    'TODOS': 'TODOS'
 }
 
 # Variables globales para la configuración

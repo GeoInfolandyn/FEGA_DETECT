@@ -16,6 +16,7 @@ from threading import Thread
 import lib.FEGA_REC_APP as FEGA_REC_APP
 import lib.DESCARGA_GUI as DESCARGA_GUI
 from datetime import datetime
+from dotenv import load_dotenv
 
 # Importamos el módulo de procesado (en otro archivo)
 # Ajusta la ruta o nombre según tu proyecto

@@ -165,7 +165,7 @@ class Fega(ctk.CTk):
         # Ajusta tu imagen y su ruta si la tienes
         try:
             img_logo = ctk.CTkImage(light_image=Image.open("./img/composicion.png"), size=(300,100))
-        except:
+        except Exception:
             img_logo = None
         
         self.logo = ctk.CTkLabel(self, image=img_logo, text="") if img_logo else ctk.CTkLabel(self, text="FEGAApp")

@@ -168,7 +168,7 @@ def recintos():
     global percentaje
     rc_df = []
     dif = fin+1-ini
-    it = 12.5/dif
+    it = 20/dif
     # usos_seleccionados = tuple(usos_seleccionados)
     for año in tqdm(range(int(ini), int(fin)+1)):
         año_s = str(año)
@@ -222,7 +222,7 @@ def lineas():
         ld_df.append(gpd.read_file(ld_18, layer = f'LD_{provincia}_2018'))
         ld_df.append(gpd.read_file(ld_19, layer = f'LD_{provincia}_2019'))
     dif = fin+1-ini
-    it = 12.5/dif    
+    it = 20/dif    
     for año in tqdm(range(int(ini), int(fin)+1)):
         año_s = str(año)
         fecha_inicio = date.fromisoformat(año_s+'-01-01')
@@ -392,7 +392,7 @@ def overlay_rd(recintos_df, lineas_df, outdir = ''):
     rd_dir = os.path.join(outdir, f"{roi}.gpkg")
     cur_year = ini
     layers = []
-    it = 12.5/len(recintos_df)
+    it = 20/len(recintos_df)
     for i in tqdm(range(len(recintos_df))):
         
         ##################################################
@@ -467,7 +467,7 @@ def overlay_crono(fois_clip, crono_gdb):
     global percentaje
     overlayType = "union"
     years = [str(i) for i in range(int(ini)+1, int(fin)+1)]
-    it = 12.5/len(years)
+    it = 20/len(years)
     overlay_layer = None
     input_layer = fois_clip[0]
     for year in years:
@@ -639,7 +639,7 @@ def main(start, end, out_dir, provi, user_url, clip_path = None, usos_sel = ['PS
     fois_clip = layers_out
     crono_gdb = rd_dir
     ### fois clip path 
-    percentaje += 12.5
+    # percentaje += 12.5
     message = 'Creando capa CRONO'
     overlay_layer = overlay_crono(fois_clip, crono_gdb)
     overlayed_crono = campos(overlay_layer,crono_gdb)

@@ -174,7 +174,10 @@ def recintos():
         año_s = str(año)
         año_f = str(año+1)
         fecha_inicio = date.fromisoformat(prov[provincia][1][1][año_s])
-        fecha_fin = date.fromisoformat(prov[provincia][1][1][año_f])
+        try:
+            fecha_fin = date.fromisoformat(prov[provincia][1][1][año_f])
+        except:
+            fecha_fin = f'{año_f}-12-31'
         tqdm.write("Extrayendo la tabla rc_"+ str(provincia)+"_"+str(año)+ "...")
         query = f"""SELECT
     DISTINCT(dn_oid),
@@ -584,7 +587,7 @@ def campos(overlay_layer,crono_gdb):
     print(usos_pattern)
     crono_fin_filtered = crono_fin[crono_fin['u_crono'].str.contains(usos_pattern)]
     crono_fin_filtered.to_file(crono_gdb, driver='GPKG', layer=f'CRONO_FIN_{roi}')
-    if not usos_seleccionados == "TODOS":
+    if not usos_seleccionados == list(usos_suelo.keys()):
         for uso in usos_seleccionados:
             crono_fin_uso = crono_fin[crono_fin['u_crono'].str.contains(uso)]
             crono_fin_uso.to_file(crono_gdb, driver='GPKG', layer=f'CRONO_{roi}_{uso}')
@@ -596,7 +599,7 @@ def clip(list_dfs, clip):
     return list_dfs        
 
 
-def main(start, end, out_dir, provi, user_url, clip_path = None, ogr2ogr_path = None, usos_sel = ['PS','PA','PR','FY','OV','VI']):
+def main(start, end, out_dir, provi, user_url, clip_path = None, usos_sel = ['PS','PA','PR','FY','OV','VI']):
     global ini, fin, num_prov, provincia, sql_engine, percentaje, roi, message, percentaje, outpath, usos_seleccionados
     percentaje = 0
     
@@ -604,7 +607,7 @@ def main(start, end, out_dir, provi, user_url, clip_path = None, ogr2ogr_path = 
     fin = end
     provincia = provi
     outdir = out_dir
-    if usos_sel == "TODOS":
+    if usos_sel == ["TODOS"]:
         # print(TODOS)
         usos_seleccionados = list(usos_suelo.keys())
     else:

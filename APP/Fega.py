@@ -247,7 +247,7 @@ class SentinelIndexProcessorApp(ctk.CTkFrame):
         self.check.grid(row=5, column=2, padx=5)
 
         ctk.CTkLabel(self, text="Output Format:").grid(row=7, column=0, pady=5, sticky="w", padx=(30,10))
-        ctk.CTkComboBox(self, values=["ENVI", "NetCDF"], variable=self.driver_var).grid(row=7, column=1, pady=5, padx=(0,5), sticky="we")
+        ctk.CTkComboBox(self, values=["ENVI", "NetCDF",], variable=self.driver_var).grid(row=7, column=1, pady=5, padx=(0,5), sticky="we")
 
         ctk.CTkButton(self, text="Process Sentinel-2 Data", fg_color="Blue", command=self.process_data).grid(row=8, column=0, columnspan=3, pady=20)
 
@@ -547,7 +547,7 @@ class Menu(ctk.CTkFrame):
                         str(provincias_sencillas[self.provincias.get()]),
                         str(user_sql_url),
                         self.clip,
-                        str(ogr_path),
+                        # str(ogr_path),
                         self.selected_usos
                     )
                 )

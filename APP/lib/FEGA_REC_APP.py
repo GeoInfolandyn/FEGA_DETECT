@@ -6,6 +6,7 @@ import os
 from shapely.geometry import MultiPolygon
 import shapely
 from shapely.wkt import loads, dumps 
+from shapely.ops import unary_union
 import subprocess
 import numpy as np 
 import pandas as pd
@@ -194,11 +195,16 @@ WHERE
     (dn_initialdate <= '{fecha_fin}' AND ((dn_enddate BETWEEN '{fecha_inicio}' AND '{fecha_fin}') or dn_enddate is null)) and
     (dn_initialdate_1 <= '{fecha_fin}' AND ((dn_enddate_1 BETWEEN '{fecha_inicio}' AND '{fecha_fin}') or dn_enddate_1 is null))
     AND provincia = {num_prov} 
-    AND uso_sigpac <> 'CA' AND uso_sigpac <> 'AG' AND uso_sigpac <> 'ZU' AND uso_sigpac <> 'ED' AND uso_sigpac <> 'ZC' AND uso_sigpac <> 'ZV' AND uso_sigpac <> 'IV'
-    AND ST_AREA(ST_TRANSFORM(dn_geom,32630)) > 5000 
+    
+    -- AND uso_sigpac <> 'CA' AND uso_sigpac <> 'AG' AND uso_sigpac <> 'ZU' AND uso_sigpac <> 'ED' AND uso_sigpac <> 'ZC' AND uso_sigpac <> 'ZV' AND uso_sigpac <> 'IV'
+    -- AND ST_AREA(ST_TRANSFORM(dn_geom,32630)) > 500 
+    -- AND (ST_INTERSECTS({cliped_wkt}, dn_geom) OR ST_TOUCHES({cliped_wkt}, dn_geom))
+    AND (ST_INTERSECTS(ST_Transform(dn_geom,32630), {cliped_wkt}) OR ST_DWITHIN(ST_Transform(dn_geom,32630), {cliped_wkt}, 1000))
     
 """
         try:
+            # if cliped_wkt:
+            #     query += f'AND ST_INTERSECTS({cliped_wkt}, dn_geom)'
             rc_df.append(gpd.GeoDataFrame.from_postgis(query, sql_engine, geom_col='dn_geom'))
 
         # gpkgs.add(dir)
@@ -246,9 +252,13 @@ SELECT
     FROM t$linea_declaracion AS ld
 WHERE 
     ((ld.dn_initialdate <= '{fecha_fin}' AND (ld.dn_enddate BETWEEN '{fecha_inicio}' AND '{fecha_fin}') OR ld.dn_enddate IS NULL) 
-    AND ld.provincia = {num_prov}) AND (ST_AREA(ST_TRANSFORM(ld.dn_geom,32630)) > 5000)
+    AND ld.provincia = {num_prov}) 
+    -- AND (ST_AREA(ST_TRANSFORM(ld.dn_geom,32630)) > 500)
+    AND ST_INTERSECTS({cliped_wkt}, ST_Transform(dn_geom,32630))
 """
             try:
+                # if cliped_wkt:
+                #     query += f'AND ST_INTERSECTS({cliped_wkt}, dn_geom)'
                 ld_df.append(gpd.GeoDataFrame.from_postgis(query, sql_engine, geom_col='dn_geom'))
                 
 
@@ -319,7 +329,7 @@ def filiformes(input_gdf):
     gdf['perimeter_area_ratio'] = gdf.geometry.length / gdf.geometry.area
     
     # Filter eligible geometries
-    mask = gdf['perimeter_area_ratio'] <= 4
+    mask = gdf['perimeter_area_ratio'] <= 1
 
     gdf = gdf.drop(columns=['perimeter_area_ratio'])
     print(f"Identified {mask.sum()} filiform geometries")
@@ -606,7 +616,7 @@ def clip(list_dfs, clip):
 
 
 def main(start, end, out_dir, provi, user_url, clip_path = None, usos_sel = ['PS','PA','PR','FY','OV','VI']):
-    global ini, fin, num_prov, provincia, sql_engine, percentaje, roi, message, percentaje, outpath, usos_seleccionados
+    global ini, fin, num_prov, provincia, sql_engine, percentaje, roi, message, percentaje, outpath, usos_seleccionados,cliped_wkt
     percentaje = 0
     
     ini = start
@@ -630,16 +640,20 @@ def main(start, end, out_dir, provi, user_url, clip_path = None, usos_sel = ['PS
     sql_engine = create_engine(user)
     # sql_engine = create_engine(f'postgresql://carga:g30qub1dy@localhost:5432/{url}')
 
-    message = 'Extrayendo recintos'
-    recintos_df = recintos()
-    
-    message = 'Extrayendo lineas de declaracion'
-    lineas_df = lineas()
     if clip_path:
         cliped = gpd.read_file(clip_path)
         cliped = cliped.to_crs(32630)
-        recintos_df = clip(recintos_df, cliped)
-        lineas_df = clip(lineas_df, cliped)
+        ### connvert all the geometries into one 
+        cliped = cliped.unary_union
+        cliped = cliped.convex_hull
+        cliped_wkt = F"ST_GeomFromText('{cliped.wkt}',32630)"
+  
+
+        # print(cliped_wkt)
+    message = 'Extrayendo recintos'
+    recintos_df = recintos()
+    message = 'Extrayendo lineas de declaracion'
+    lineas_df = lineas()
     message = 'Creando recintos declarados'
     rd_dir, layers_out = overlay_rd(recintos_df, lineas_df, outdir) 
     fois_clip = layers_out

@@ -76,6 +76,7 @@ Código principal que integra todos los algoritmos dentro de una interfaz gráfi
 ## 📌 Notas adicionales
 - Se recomienda asegurarse de que los archivos de configuración están correctamente definidos antes de ejecutar la aplicación.
 - Se está trabajando en mejorar la integración del sistema para evitar dependencias externas innecesarias.
+- Es necesario ejecutar el código Fega.py desde la carpeta app para que funcione correctamente.
 
 ---
 

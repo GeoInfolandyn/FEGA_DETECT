@@ -410,9 +410,10 @@ def overlay_rd(recintos_df, lineas_df, outdir = ''):
         ld = filiformes(ld)
         ld = eliminate_overlaps_geodataframe(ld)
         ##################################################
-
-        over_df = gpd.overlay(rc, ld, how=overlay_type, make_valid=True, keep_geom_type=True)
-        
+        try:
+            over_df = gpd.overlay(rc, ld, how=overlay_type, make_valid=True, keep_geom_type=True)
+        except:
+            over_df = gpd.overlay(rc, ld, how='intersection', keep_geom_type=True)
         # over_df = eliminate_overlaps_geodataframe(over_df)
         over_df = filiformes(over_df)
         over_df = corregir_geometrias(over_df)
@@ -498,11 +499,16 @@ def overlay_crono(fois_clip, crono_gdb):
             #######
             
             ### OVERLAY
-            
-            over_df = gpd.overlay(in_df, cur_df, how=overlayType,  make_valid=True, keep_geom_type=True)
-            over_df = corregir_geometrias(over_df)
-            over_df = filiformes(over_df)
-            over_df = over_df[over_df.geom_type.isin(['Polygon', 'MultiPolygon'])]
+            try:
+                over_df = gpd.overlay(in_df, cur_df, how=overlayType,  make_valid=True, keep_geom_type=True)
+                over_df = corregir_geometrias(over_df)
+                over_df = filiformes(over_df)
+                over_df = over_df[over_df.geom_type.isin(['Polygon', 'MultiPolygon'])]
+            except:
+                over_df = gpd.overlay(in_df, cur_df, how='intersection', keep_geom_type=True)
+                over_df = corregir_geometrias(over_df)
+                over_df = filiformes(over_df)
+                over_df = over_df[over_df.geom_type.isin(['Polygon', 'MultiPolygon'])]
             
             
             over_df = gpd.GeoDataFrame(over_df, geometry='geometry', crs=32630)

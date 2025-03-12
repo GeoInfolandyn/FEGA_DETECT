@@ -182,12 +182,6 @@ class Fega(ctk.CTk):
         )
         self.btn_config.grid(row=0, column=1, sticky="w", padx=40)
     
-    def setConfig(self):
-        global user_sql_url
-        conf = open('./config/config.txt', 'w')
-        user_sql_url = simpledialog.askstring('SQL user URL', 'Write the database url for the features extraction')
-        conf.write(user_sql_url)
-    
     def open_sentinel_app(self):
         top = ctk.CTkToplevel(self)
         top.title("Sentinel-2 Index Processor")
@@ -367,12 +361,21 @@ class Menu(ctk.CTkFrame):
         self.createWidgets()
     
     def setConfig(self):
-        global user_sql_url, ogr_path
-        conf = open('./config/config.txt', 'w')
-        user_sql_url = simpledialog.askstring('SQL user URL', 'Write the database url for the features extraction')
-        ogr_path = simpledialog.askstring('OGR Path', 'Write the OGR path')
-        text = f"{user_sql_url}\n{ogr_path}"
-        conf.write(text)
+        global user_sql_url
+        # conf = open('./config/config.txt', 'w')
+        # user_sql_url = simpledialog.askstring('SQL user URL', 'Write the database url for the features extraction')
+        user = simpledialog.askstring('SQL user', 'Write the user for the database')
+        password = simpledialog.askstring('SQL password', 'Write the password for the database', show='*')
+        host = simpledialog.askstring('SQL host', 'Write the host for the database')
+        port = simpledialog.askstring('SQL port', 'Write the port for the database')
+        # save it in the .env file
+        with open('.env', 'w') as env:
+            env.write(f'MYUSER={user}\n')
+            env.write(f'MYPASSWORD={password}\n')
+            env.write(f'MYHOST={host}\n')
+            env.write(f'MYPORT={port}\n')
+        user_sql_url = f"postgresql://{user}:{password}@{host}:{port}"
+        # conf.write(user_sql_url)
     
     def createWidgets(self):
         # Botón Set Configuration
@@ -581,13 +584,13 @@ class Menu(ctk.CTkFrame):
 # EJECUCIÓN PRINCIPAL (solo la GUI)
 # ----------------------------------------------------------------
 if __name__ == '__main__':
-    # Si existe config.txt, lo leemos para cargar user_sql_url y ogr_path
-    if os.path.exists('./config/config.txt'):
-        with open('./config/config.txt') as fd:
-            lines = fd.readlines()
-            if len(lines) == 2:
-                user_sql_url = lines[0].strip()
-                ogr_path = lines[1].strip()
-
     app = Fega()
+    if not os.path.exists('.env'):
+        app.menu.setConfig()
+          
+    load_dotenv()
+    user_sql_url = f'postgresql://{os.getenv("MYUSER")}:{os.getenv("MYPASSWORD")}@{os.getenv("MYHOST")}:{os.getenv("MYPORT")}'
+    print(user_sql_url)
+    
+
     app.mainloop()

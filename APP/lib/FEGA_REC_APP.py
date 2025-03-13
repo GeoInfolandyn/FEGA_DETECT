@@ -199,12 +199,12 @@ WHERE
     -- AND uso_sigpac <> 'CA' AND uso_sigpac <> 'AG' AND uso_sigpac <> 'ZU' AND uso_sigpac <> 'ED' AND uso_sigpac <> 'ZC' AND uso_sigpac <> 'ZV' AND uso_sigpac <> 'IV'
     -- AND ST_AREA(ST_TRANSFORM(dn_geom,32630)) > 500 
     -- AND (ST_INTERSECTS({cliped_wkt}, dn_geom) OR ST_TOUCHES({cliped_wkt}, dn_geom))
-    AND (ST_INTERSECTS(ST_Transform(dn_geom,32630), {cliped_wkt}) OR ST_DWITHIN(ST_Transform(dn_geom,32630), {cliped_wkt}, 1000))
+    
     
 """
         try:
-            # if cliped_wkt:
-            #     query += f'AND ST_INTERSECTS({cliped_wkt}, dn_geom)'
+            if cliped_wkt:
+                query += f'AND (ST_INTERSECTS(ST_Transform(dn_geom,32630), {cliped_wkt}) OR ST_DWITHIN(ST_Transform(dn_geom,32630), {cliped_wkt}, 1000))'
             rc_df.append(gpd.GeoDataFrame.from_postgis(query, sql_engine, geom_col='dn_geom'))
 
         # gpkgs.add(dir)
@@ -254,11 +254,10 @@ WHERE
     ((ld.dn_initialdate <= '{fecha_fin}' AND (ld.dn_enddate BETWEEN '{fecha_inicio}' AND '{fecha_fin}') OR ld.dn_enddate IS NULL) 
     AND ld.provincia = {num_prov}) 
     -- AND (ST_AREA(ST_TRANSFORM(ld.dn_geom,32630)) > 500)
-    AND ST_INTERSECTS({cliped_wkt}, ST_Transform(dn_geom,32630))
 """
             try:
-                # if cliped_wkt:
-                #     query += f'AND ST_INTERSECTS({cliped_wkt}, dn_geom)'
+                if cliped_wkt:
+                    query += f'AND (ST_INTERSECTS(ST_Transform(dn_geom,32630), {cliped_wkt}) OR ST_DWITHIN(ST_Transform(dn_geom,32630), {cliped_wkt}, 1000))'
                 ld_df.append(gpd.GeoDataFrame.from_postgis(query, sql_engine, geom_col='dn_geom'))
                 
 
@@ -652,8 +651,10 @@ def main(start, end, out_dir, provi, user_url, clip_path = None, usos_sel = ['PS
         # print(cliped_wkt)
     message = 'Extrayendo recintos'
     recintos_df = recintos()
+    # print(recintos_df)
     message = 'Extrayendo lineas de declaracion'
     lineas_df = lineas()
+    # print(lineas_df)
     message = 'Creando recintos declarados'
     rd_dir, layers_out = overlay_rd(recintos_df, lineas_df, outdir) 
     fois_clip = layers_out

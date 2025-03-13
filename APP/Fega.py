@@ -585,12 +585,12 @@ class Menu(ctk.CTkFrame):
 # ----------------------------------------------------------------
 if __name__ == '__main__':
     app = Fega()
+    # Revisa si existe el archivo de configuración
     if not os.path.exists('.env'):
         app.menu.setConfig()
-          
+    # Cargamos las variables de entorno
     load_dotenv()
     user_sql_url = f'postgresql://{os.getenv("MYUSER")}:{os.getenv("MYPASSWORD")}@{os.getenv("MYHOST")}:{os.getenv("MYPORT")}'
     print(user_sql_url)
-    
-
+    # Iniciamos la app
     app.mainloop()

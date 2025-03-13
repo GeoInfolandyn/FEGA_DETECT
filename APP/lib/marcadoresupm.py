@@ -243,8 +243,6 @@ def __anualcycle(as1, ar, alldates):
     return __process_intervals(intervals, alldates[0].year, alldates[-1].year)
 
 
-
-
 def process_series(dataframe:pd.DataFrame) -> pd.DataFrame:
     """
 
@@ -307,7 +305,7 @@ def calcular_marcadores(dataframe:pd.DataFrame) -> pd.DataFrame:
     def load_umbrals():
         global umbral_tam, umbral_productivity, umbral_days
         try:
-            umbrals = pd.read_csv('umbrals.csv')
+            umbrals = pd.read_csv('umbrals/umbrals.csv')
             umbral_tam = umbrals['UMBRAL_TAM'][0]
             umbral_days = umbrals['UMBRAL_DAYS'][0]
             umbral_productivity = umbrals['UMBRAL_PRODUCTIVITY'][0]
@@ -388,7 +386,7 @@ def parametrizar(dataframe:pd.DataFrame) -> None:
         if title:
             plt.title(title)
         plt.legend(['Mean', 'Mean + 2*std', 'Mean - 2*std'])
-        plt.savefig(f'{title}.png')
+        plt.savefig(f'umbrals/{title}.png')
         plt.close()
         return mean, std, n       
 
@@ -409,6 +407,7 @@ def parametrizar(dataframe:pd.DataFrame) -> None:
     dataframe['TAM'] = dataframe['NDVI'].apply(lambda x: __interanualTAM(np.array(x), all_dates))
     dataframe['INTERVALS'] = dataframe.apply(lambda x: __intervals(np.array(x['AS1']), np.array(x['AR']), all_dates), axis=1)
     
+    os.makedirs('umbrals', exist_ok=True)
     tams = dataframe['TAM'].values
     tams = np.concatenate(tams)
     umbral_tam = round(getUmbralTAM(tams), 2)
@@ -420,5 +419,5 @@ def parametrizar(dataframe:pd.DataFrame) -> None:
     umbral_productivity = round(getUmbralProductivity(productivity), 2)
     print(f'UMBRAL TAM: {umbral_tam}\nUMBRAL DAYS: {umbral_days}\nUMBRAL PRODUCTIVITY: {umbral_productivity}')
     umbrals = pd.DataFrame({'UMBRAL_TAM': [umbral_tam], 'UMBRAL_DAYS': [umbral_days], 'UMBRAL_PRODUCTIVITY': [umbral_productivity]})
-    umbrals.to_csv('umbrals.csv', index=False)
+    umbrals.to_csv('umbrals/umbrals.csv', index=False)
 

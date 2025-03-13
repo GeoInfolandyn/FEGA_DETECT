@@ -1,4 +1,6 @@
-import lib.marcadoresupm as upm
+# import lib.marcadoresupm as upm
+from context import lib
+from lib import marcadoresupm as upm
 import ee
 import geemap
 import os

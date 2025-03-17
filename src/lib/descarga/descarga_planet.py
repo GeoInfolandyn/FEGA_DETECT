@@ -796,9 +796,10 @@ def main():
         tiles = gpd.read_file(r"data/TILES/TILES.shp").to_crs("EPSG:4326")
 
         roi = gpd.read_file(clip_path).to_crs("EPSG:4326")
+        if 'Name' in roi.columns:
+            roi = roi.rename(columns={'Name': 'Name_roi'})
         bbox = roi.total_bounds
         tile_inter = gpd.overlay(roi, tiles, how='intersection')
-        print(tile_inter)
         ### select the tile polygon with the largest area and take the name of the tile
         tile = tile_inter[tile_inter.area == tile_inter.area.max()]["Name"].values[0]
         orbit = orbits[tile]

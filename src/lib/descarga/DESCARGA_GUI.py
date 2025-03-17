@@ -129,7 +129,7 @@ class SentinelIndexProcessorApp(ctk.CTkFrame):
             # Construct command
             cmd = [
                 sys.executable,  # Current Python interpreter
-                r"lib\descarga\descarga_planet.py",  # Your main script
+                r".\lib\descarga\descarga_planet.py",  # Your main script
                 self.output_dir_var.get(),
                 self.start_date_var.get(),
                 self.end_date_var.get(),

@@ -230,7 +230,7 @@ def primera_fecha(start_date,end_date,tile,orbit):
     diff = ini -  start_date 
     ndays = 0
     if diff > timedelta(days=5):
-        ndays = diff // 5
+        ndays = diff.days // 5
     ini = ini - timedelta(days=5*ndays) 
 
     

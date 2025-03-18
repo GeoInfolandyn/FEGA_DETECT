@@ -583,7 +583,7 @@ class Menu(ctk.CTkFrame):
 # ----------------------------------------------------------------
 # EJECUCIÓN PRINCIPAL (solo la GUI)
 # ----------------------------------------------------------------
-if __name__ == '__main__':
+def main():
     app = Fega()
     # Revisa si existe el archivo de configuración
     if not os.path.exists('.env'):
@@ -594,3 +594,7 @@ if __name__ == '__main__':
     print(user_sql_url)
     # Iniciamos la app
     app.mainloop()
+
+
+if __name__ == '__main__':
+    main()

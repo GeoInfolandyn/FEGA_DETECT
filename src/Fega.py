@@ -151,7 +151,9 @@ class Fega(ctk.CTk):
         self.title("FEGAPP")
         self.geometry("750x550")
         # Ajusta tu ruta de icono si la tienes
-        # self.iconbitmap("./img/IconoFegaApp.ico")  
+        file_path = os.path.dirname(os.path.abspath(__file__))
+        ico_path = os.path.join(file_path, "img/IconoFegaApp.ico")
+        self.iconbitmap(ico_path)  
         self.resizable(0,0)
         
         self.grid_columnconfigure((0,1), weight=1)
@@ -165,11 +167,15 @@ class Fega(ctk.CTk):
     def createWidgets(self):
         # Ajusta tu imagen y su ruta si la tienes
         try:
-            img_logo = ctk.CTkImage(light_image=Image.open("./img/composicion.png"), size=(300,100))
+            path = r"img/composicion.png"
+            file_path = os.path.dirname(os.path.abspath(__file__))
+            abs_path = os.path.join(file_path, path)
+            print(abs_path)
+            img_logo = ctk.CTkImage(light_image=Image.open(abs_path), size=(300,100))
         except Exception:
             img_logo = None
         
-        self.logo = ctk.CTkLabel(self, image=img_logo, text="") if img_logo else ctk.CTkLabel(self, text="FEGAApp")
+        self.logo = ctk.CTkLabel(self, image=img_logo, text="") if img_logo else ctk.CTkLabel(self, text="FEGApp")
         self.logo.grid(row=0, column=0, padx=10, sticky='wns')
         
         self.btn_config = ctk.CTkButton(

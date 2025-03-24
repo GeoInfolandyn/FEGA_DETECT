@@ -69,7 +69,11 @@ Contiene la información necesaria para el correcto funcionamiento del **SIGPAC 
 
       - #### 📁 `upm`
         - 📄`__init__.py`: Marca el comienzo de un paquete.
-        - 📄`marcadoresupm.py`: Algoritmos de descarga de la base de datos del SIGPAC y generación del SIGPAC Crono.
+        - 📄`marcadoresupm.py`: Algoritmos de calculo de marcadores estadisticos de estabilidad de parcelas, analizando dinamicas temporales.
+  - #### 📁 `test`
+    - 📄`__init__.py`: Marca el comienzo de un paquete.
+    - 📄`conext.py`: Importacion de paquetes para la carpeta `test`
+    - 📄`marcadores_trial.py`: Prueba del calculo de marcadores.
 
   - 📄`__init__.py`: Marca el comienzo de un paquete.
 

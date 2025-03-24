@@ -62,6 +62,7 @@ Contiene la información necesaria para el correcto funcionamiento del **SIGPAC 
       - 📄`descarga_planet.py`: Código para la descarga de imágenes.
       - 📄`Stack_stacks.py`: Algoritmo para el apilado de todas las imágenes descargadas.
 
+    - #### 📁 `procesamiento`
       - #### 📁 `sigpac`
         - 📄`__init__.py`: Marca el comienzo de un paquete.
         - 📄`FEGA_REC_APP.py`: Algoritmos de descarga de la base de datos del SIGPAC y generación del SIGPAC Crono.

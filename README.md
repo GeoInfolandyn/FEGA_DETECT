@@ -15,39 +15,72 @@ Este módulo permite la descarga de diferentes índices para un *tile* o una zon
 
 ## 2. Marcadores
 Parte enfocada en los marcadores y la parametrización derivada del análisis de la estabilidad y los ciclos de vegetación de los recintos de estudio.
+Se proporciona un test para poder calcular los marcadores de parcelas.
 
 ---
 
 ## Estructura del repositorio
 
-### 📂 `FEGAPP`
+### 📂 `FEGA_DETECT`
 
-#### 📁 `Config`
+
+#### 📁 `docs`
+Carpeta donde se contiene el manual de uso extenso.
+- 📄 `manual_uso.docx`
+
+#### 📁 `img`
+Carpeta donde se encuentran las imagenes asociadas con el README.
+- 📄 **`descarga.png`**
+- 📄 **`FEGAPP.png`**
+
+#### 📁 `src`
 Contiene la información necesaria para el correcto funcionamiento del **SIGPAC Crono**:
 
-- **`Config.txt`**: Contiene el nombre de la base de datos en formato URL y la ubicación del OGR para la traducción a GDB (en proceso de mejora para eliminar esta necesidad).
-- **`CSV_CONFIG.csv`**: Archivo CSV con la información de comunidades autónomas, años de campaña, fechas de inicio y nombre de la base de datos instalada.
+  - #### 📁 `config`
+    - **`CSV_CONFIG.csv`**: Archivo CSV con la información de comunidades autónomas, años de campaña, fechas de inicio y nombre de la base de datos instalada.
+  
+  - #### 📁 `data`
 
-#### 📁 `Img`
-Carpeta con los archivos de imágenes necesarias:
-- **`composición.png`**: Composición del FEGA y el grupo de investigación.
+    - #### 📁 `TILES`
+    Carpeta con los *tiles* de Sentinel-2 necesarios para obtener la geometría correcta para la descarga de imágenes, en formato **ShapeFile**.
+    - #### 📁 `umbrals`
+    Carpeta con los umbrales calculados de los marcadores tras la función parametrización, en formato **CSV**.
 
-- **`IconoFegaApp.ico`**: Imagen de GEOQUBIDY.
+  - #### 📁 `img`
+    Carpeta con los archivos de imágenes necesarias:
+    - 📄 **`composición.png`**: Composición del FEGA y el grupo de investigación.
 
-#### 📁 `Lib`
-Contiene los códigos fuente de las funcionalidades de la aplicación:
+    - 📄 **`IconoFegaApp.ico`**: Imagen de GEOQUBIDY.
 
-- `__init__.py`: Marca el comienzo de un paquete.
-- `DESCARGA_GUI.py`: Código de la interfaz gráfica para la descarga de imágenes.
-- `descarga_planet.py`: Código para la descarga de imágenes.
-- `FEGA_REC_APP.py`: Algoritmos de descarga de la base de datos del SIGPAC y generación del SIGPAC Crono.
-- `Stack_stacks.py`: Algoritmo para el apilado de todas las imágenes descargadas.
+  - #### 📁 `lib`
+    Contiene los códigos fuente de las funcionalidades de la aplicación:
+    - 📄`__init__.py`: Marca el comienzo de un paquete.
 
-#### 📁 `TILES`
-Carpeta con los *tiles* de Sentinel-2 necesarios para obtener la geometría correcta para la descarga de imágenes.
+    - #### 📁 `descarga`
+      - 📄`__init__.py`: Marca el comienzo de un paquete.
+      - 📄`DESCARGA_GUI.py`: Código de la interfaz gráfica para la descarga de imágenes.
+      - 📄`descarga_planet.py`: Código para la descarga de imágenes.
+      - 📄`Stack_stacks.py`: Algoritmo para el apilado de todas las imágenes descargadas.
 
-#### 📄 `Fega.py`
-Código principal que integra todos los algoritmos dentro de una interfaz gráfica para ejecutar la aplicación.
+      - #### 📁 `sigpac`
+        - 📄`__init__.py`: Marca el comienzo de un paquete.
+        - 📄`FEGA_REC_APP.py`: Algoritmos de descarga de la base de datos del SIGPAC y generación del SIGPAC Crono.
+
+      - #### 📁 `upm`
+        - 📄`__init__.py`: Marca el comienzo de un paquete.
+        - 📄`marcadoresupm.py`: Algoritmos de descarga de la base de datos del SIGPAC y generación del SIGPAC Crono.
+
+  - 📄`__init__.py`: Marca el comienzo de un paquete.
+
+  - 📄 **`Fega.py`**: Código principal que integra todos los algoritmos dentro de una interfaz gráfica para ejecutar la aplicación.
+
+📄 **`LICENSE`**: Licencias de uso de la aplicación.
+
+📄 **`main.py`**: Codigo para ejecutar la aplicación.
+
+📄 **`README.md`**: Texto plano del README.
+
+📄 **`requirements.txt`**: Requisitos de instalación de paquetes de Python.
 
 ---
 
@@ -76,8 +109,57 @@ Código principal que integra todos los algoritmos dentro de una interfaz gráfi
 ## 📌 Notas adicionales
 - Se recomienda asegurarse de que los archivos de configuración están correctamente definidos antes de ejecutar la aplicación.
 - Se está trabajando en mejorar la integración del sistema para evitar dependencias externas innecesarias.
-- Es necesario ejecutar el código Fega.py desde la carpeta app para que funcione correctamente.
 
----
+
+## Variables de entorno
+
+Para ejecutar la app correctamente se necesitan las siguientes variable de entorno, que se pueden generar previamente o durante el uso de la app.
+
+`MYUSER` nombre de usuario de la base de datos.
+
+`MYPASSWORD` contraseña del usuario de la base de datos.
+
+`MYHOST` IP de la maquina donde se aloja el servicio de base de datos.
+
+`MYPORT` puerto de la maquina host asociado al servicio de base de datos.
+
+
+## Ejecutar en local
+
+Clonar el repositorio
+
+```bash
+  git clone https://github.com/TomPug/FEGA_DETECT.git
+```
+
+Abrir la carpeta
+
+```bash
+  cd FEGA_DETECT
+```
+
+Instalar las dependencias
+```bash
+  pip install -r requirements.txt
+```
+
+Abrir la app
+
+```bash
+  python3 main.py
+```
+
+
+## Ejecutar prueba de marcadores
+
+Para ejecutar la prueba de marcadores (todavia no integrado en la app), use la herramienta por terminal de prueba:
+
+```bash
+  python3 src/test/marcadores_trial.py
+```
+
+
+## Soporte
+[Informacion sobre el equipo](https://blogs.upm.es/dynamicland/)
 
 © 2025 **GEOQUBIDY**. Todos los derechos reservados.

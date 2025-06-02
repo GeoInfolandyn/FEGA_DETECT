@@ -87,10 +87,48 @@ def opcion5():
     upm.parametrizar(dataframe)
     print('Parametrización completada')
     
+def opcion6(ar_path, as1_path, ndvi_path, dates_path):
+    """Calcula los marcadores de un conjunto de datos de parcelas con los archivos individuales de AR, AS1 y NDVI.
+
+    Args:
+        ar_path (str): Ruta al archivo CSV de AR.
+        as1_path (str): Ruta al archivo CSV de AS1.
+        ndvi_path (str): Ruta al archivo CSV de NDVI.
+    """
+    ar_df = pd.read_csv(ar_path)
+    as1_df = pd.read_csv(as1_path)
+    ndvi_df = pd.read_csv(ndvi_path)
+    fechas_df = pd.read_csv(dates_path, header=0, names=['fecha'])
+    if ndvi_df.shape[0] != ar_df.shape[0] or ndvi_df.shape[0] != as1_df.shape[0]:
+        raise ValueError("Los archivos AR, AS1 y NDVI deben tener el mismo número de filas.")
+    # asearse de que las columnas de fecha son del tipo datetime
+    fechas_df['fecha'] = pd.to_datetime(fechas_df['fecha'], format='%d/%m/%Y', errors='coerce')
+    
+    # obtener la columna que conteniene *ID*
+    id_col = [col for col in ar_df.columns if 'ID' in col][0]
+    print(f'Columna de ID encontrada: {id_col}')
+    # renombrar las columnas con el sufijo correspondiente y la fecha correspondiente
+    for i, row in fechas_df.iterrows():
+        fecha = row['fecha'].strftime('%Y%m%d')
+        ar_df.rename(columns={ar_df.columns[i+1]: f"{fecha}T_AR"}, inplace=True)
+        as1_df.rename(columns={as1_df.columns[i+1]: f"{fecha}T_AS1"}, inplace=True)
+        ndvi_df.rename(columns={ndvi_df.columns[i+1]: f"{fecha}T_NDVI"}, inplace=True)
+    # unir los dataframes por la columna ID
+    df = ar_df.merge(as1_df, on=id_col, how="inner", validate="many_to_many").merge(ndvi_df, on=id_col, how="inner", validate="many_to_many")
+    output_path = os.path.dirname(ar_path)
+    df.to_csv(os.path.join(output_path, 'series.csv'), index=False)
+    if input('¿Desea parametrizar los datos? (s/n): ').lower() == 's':
+        upm.parametrizar(df.copy())
+        
+    df = upm.calcular_marcadores(df)
+    df.to_csv(os.path.join(output_path, f'marcadores-{upm.umbral_tam}-{upm.umbral_days}-{upm.umbral_productivity}.csv'), index=False, sep=';')
+    print('Marcadores calculados y guardados en:', os.path.join(output_path,  f'marcadores-{upm.umbral_tam}-{upm.umbral_days}-{upm.umbral_productivity}.csv'))
+    
         
             
 if __name__ == '__main__':
-    option = input('Seleccione una opcion de proceso:\n\t[1] Calcular indices espectrales\n\t[2] Calcular marcadores\n\t[3] Descargar CSVs\n\t[4] Completo\n\t[5] Parametrizar\nIntroduce el número de la opción: ')
+    option = input('Seleccione una opcion de proceso:\n\t[1] Calcular indices espectrales\n\t[2] Calcular marcadores\n\t[3] Descargar CSVs\n\t[4] Completo\n\t[5] Parametrizar'+
+                   '\n\t[6] Proceso completo con archivos independientes(AR, AS1, NDVI y Fechas)\nIntroduce el número de la opción: ')
     if option == '1':
         if input('¿Desea autenticarse con Earth Engine? (s/n): ') == 's':
             ee.Authenticate(auth_mode='notebook')
@@ -106,5 +144,10 @@ if __name__ == '__main__':
         opcion4(input('Introduce la ruta del archivo de credenciales: '))
     elif option == '5':
         opcion5()
+    elif option == '6':
+        opcion6(input('Introduce la ruta del archivo de AR: '),
+                input('Introduce la ruta del archivo de AS1: '),
+                input('Introduce la ruta del archivo de NDVI: '),
+                input('Introduce la ruta del archivo de fechas: '))
     else:
         print('Opción no válida')

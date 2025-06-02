@@ -203,16 +203,20 @@ def __process_intervals(intervals, ini, end):
     res = 'c'
     years = [str(year) for year in range(ini, end+1)]
     for year in years:
-        if year == years[0]:
-            if any([interval for interval in intervals if year in interval[0][0] and interval[1] > umbral_days and interval[1] < 365 and interval[2] > umbral_productivity]):
-                res += '1'
-            else:
-                res += '0'
+        # if year == years[0]:
+        #     if any([interval for interval in intervals if year in interval[0][0] and interval[1] > umbral_days and interval[1] < 365 and interval[2] > umbral_productivity]):
+        #         res += '1'
+        #     else:
+        #         res += '0'
+        # else:
+        #     if any([interval for interval in intervals if year in interval[0][1] and interval[1] > umbral_days and interval[1] < 365 and interval[2] > umbral_productivity]):
+        #         res += '1'
+        #     else:
+        #         res += '0'
+        if any([interval for interval in intervals if (year in interval[0][0] or year in interval[0][1]) and interval[1] > umbral_days and interval[1] < 365 and interval[2] > umbral_productivity]):
+                res += str(sum([1 for interval in intervals if (year in interval[0][0] or year in interval[0][1]) and interval[1] > umbral_days and interval[1] < 365 and interval[2] > umbral_productivity]))
         else:
-            if any([interval for interval in intervals if year in interval[0][1] and interval[1] > umbral_days and interval[1] < 365 and interval[2] > umbral_productivity]):
-                res += '1'
-            else:
-                res += '0'
+            res += '0'
                 
     return res
 
@@ -258,6 +262,7 @@ def process_series(dataframe:pd.DataFrame) -> pd.DataFrame:
     ar_colums = [col for col in dataframe.columns if 'AR' in col]
     as1_colums = [col for col in dataframe.columns if 'AS1' in col]
     dates_sentinel2 = list(map(lambda x: x.split('T')[0], ndvi_colums))
+    # print(f'Fechas de Sentinel-2 encontradas: {dates_sentinel2}')
     # transform the dates to datetime objects
     dates_sentinel2 = [datetime.datetime.strptime(date, '%Y%m%d') for date in dates_sentinel2]
     # calculate the missing dates from the first date to the last date with a difference of 5 days
@@ -310,10 +315,12 @@ def calcular_marcadores(dataframe:pd.DataFrame) -> pd.DataFrame:
             umbral_days = umbrals['UMBRAL_DAYS'][0]
             umbral_productivity = umbrals['UMBRAL_PRODUCTIVITY'][0]
         except Exception:
-            print('No se han encontrado los umbrals, se usarán los valores por defecto:\nUMBRAL TAM: 0.4\nUMBRAL DAYS: 60\nUMBRAL PRODUCTIVITY: 10000')
+            print('No se han encontrado los umbrals, se usarán los valores por defecto.')
             umbral_tam = 0.4
             umbral_productivity = 10000
             umbral_days = 60
+            
+        print(f'UMBRAL TAM: {umbral_tam}\nUMBRAL DAYS: {umbral_days}\nUMBRAL PRODUCTIVITY: {umbral_productivity}')
             
     def get_TAM_flag(tam):
         if len(tam) == 0:
@@ -340,6 +347,8 @@ def calcular_marcadores(dataframe:pd.DataFrame) -> pd.DataFrame:
     dataframe['ANUALCYCLE'] = dataframe.apply(lambda x: __anualcycle(np.array(x['AS1']), np.array(x['AR']), all_dates), axis=1)
     dataframe['TAM_FLAG'] = dataframe['TAM'].apply(get_TAM_flag)
     dataframe['STABILITY_STATUS'] = dataframe.apply(lambda x: classificar(x['ANUALCYCLE'], x['TAM_FLAG']), axis=1)
+    # quitar las columnas que no se necesitan 'NDVI', 'AR', 'AS1'
+    dataframe.drop(columns=['NDVI', 'AR', 'AS1'], inplace=True)
     return dataframe
 
 

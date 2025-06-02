@@ -615,7 +615,7 @@ def clip(list_dfs, clip):
 
 
 def main(start, end, out_dir, provi, user_url, clip_path = None, usos_sel = ['PS','PA','PR','FY','OV','VI']):
-    global ini, fin, num_prov, provincia, sql_engine, percentaje, roi, message, percentaje, outpath, usos_seleccionados,cliped_wkt
+    global ini, fin, num_prov, provincia, sql_engine, percentaje, roi, message, percentaje, outpath, usos_seleccionados, cliped_wkt
     percentaje = 0
     
     ini = start
@@ -628,7 +628,8 @@ def main(start, end, out_dir, provi, user_url, clip_path = None, usos_sel = ['PS
     else:
         usos_seleccionados = usos_sel
 
-    config = config_csv(r'./config/CSV_CONFIG.csv')
+
+    config = config_csv(r'./src/config/CSV_CONFIG.csv')
     prov = create_prov_dict(config)
     
     num_prov = int(prov[provincia][0])
@@ -646,7 +647,8 @@ def main(start, end, out_dir, provi, user_url, clip_path = None, usos_sel = ['PS
         cliped = cliped.unary_union
         cliped = cliped.convex_hull
         cliped_wkt = F"ST_GeomFromText('{cliped.wkt}',32630)"
-  
+    else:
+        cliped_wkt = None
 
         # print(cliped_wkt)
     message = 'Extrayendo recintos'

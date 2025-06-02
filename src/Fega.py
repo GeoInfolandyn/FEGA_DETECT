@@ -590,6 +590,7 @@ class Menu(ctk.CTkFrame):
 # EJECUCIÓN PRINCIPAL (solo la GUI)
 # ----------------------------------------------------------------
 def main():
+    global user_sql_url
     app = Fega()
     # Revisa si existe el archivo de configuración
     if not os.path.exists('.env'):

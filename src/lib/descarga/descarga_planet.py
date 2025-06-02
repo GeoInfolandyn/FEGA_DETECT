@@ -704,7 +704,8 @@ def calculate_and_save_index(start_date, end_date, tile, orbit, index_name, res=
 
         # Save the index as a Envi
 
-        index_data.rio.to_raster(output_filename, driver= formato, dtype=np.int16, crs = stack.rio.crs, transform = stack.rio.transform())
+        # index_data.rio.to_raster(output_filename, driver= formato, dtype=np.int16, crs = stack.rio.crs, transform = stack.rio.transform())
+        index_data.rio.to_raster(output_filename, driver= formato, crs = stack.rio.crs, transform = stack.rio.transform())
        
         print(f"{index_name} calculated and saved as a 16-bit integer GeoTIFF: {output_filename}")
 
@@ -793,7 +794,7 @@ def main():
     
     if args.clip_path:
         clip_path = args.clip_path
-        tiles = gpd.read_file(r"data/TILES/TILES.shp").to_crs("EPSG:4326")
+        tiles = gpd.read_file(r"src/data/TILES/TILES.shp").to_crs("EPSG:4326")
 
         roi = gpd.read_file(clip_path).to_crs("EPSG:4326")
         if 'Name' in roi.columns:

@@ -243,7 +243,6 @@ SELECT
     ld.dn_pk as ld_pk_{año},
     ld.parc_producto as parc_producto_{año},
     ld.dn_oid,
-    ld.dn_surface,
     ld.dn_initialdate,
     ld.dn_enddate,
     ST_MakeValid(ST_TRANSFORM(dn_geom,32630),'method=structure keepcollapsed=false') as dn_geom,

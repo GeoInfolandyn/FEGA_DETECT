@@ -260,7 +260,7 @@ class SentinelIndexProcessorApp(ctk.CTkFrame):
         try:
             cmd = [
                 sys.executable,
-                r".\lib\descarga\descarga_planet.py",  # Ajusta la ruta al script que hagas servir
+                r".\src\lib\descarga\descarga_planet.py",  # Ajusta la ruta al script que hagas servir
                 self.output_dir_var.get(),
                 self.start_date_var.get(),
                 self.end_date_var.get(),

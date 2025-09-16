@@ -72,7 +72,7 @@ def opcion3(credentials_path, bucket='infolandyn', prefix='Pruebas/FEGA', output
    
 def opcion4(credentials_path, bucket='infolandyn', prefix='Pruebas/FEGA', output_dir='output'):
     # calcular indices espectrales en Earth Engine
-    opcion1('projects/ee-diegomadrugaramos/assets/FEGA/pastos_provincias', bucket, prefix)
+    opcion1('projects/infolandyn-project/assets/lin_abandono_pastos_2023', bucket, prefix)
     # descargar los CSVs
     opcion3(credentials_path, bucket, prefix, output_dir)
     # calcular marcadores
@@ -96,9 +96,16 @@ def opcion6(ar_path, as1_path, ndvi_path, dates_path):
         ndvi_path (str): Ruta al archivo CSV de NDVI.
     """
     ar_df = pd.read_csv(ar_path)
+    if ar_df.shape[1] < 2:
+        ar_df = pd.read_csv(ar_path, sep=';')
     as1_df = pd.read_csv(as1_path)
+    if as1_df.shape[1] < 2:
+        as1_df = pd.read_csv(as1_path, sep=';')
     ndvi_df = pd.read_csv(ndvi_path)
+    if ndvi_df.shape[1] < 2:
+        ndvi_df = pd.read_csv(ndvi_path, sep=';')
     fechas_df = pd.read_csv(dates_path, header=0, names=['fecha'])
+    
     if ndvi_df.shape[0] != ar_df.shape[0] or ndvi_df.shape[0] != as1_df.shape[0]:
         raise ValueError("Los archivos AR, AS1 y NDVI deben tener el mismo número de filas.")
     # asearse de que las columnas de fecha son del tipo datetime

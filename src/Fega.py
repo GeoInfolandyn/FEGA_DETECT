@@ -15,6 +15,7 @@ import sys, os
 from threading import Thread
 import lib.procesamiento.sigpac.FEGA_REC_APP as FEGA_REC_APP
 import lib.descarga.DESCARGA_GUI as DESCARGA_GUI
+import test.marcadores_calculo as marcadores_calculo
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -156,11 +157,11 @@ class Fega(ctk.CTk):
         self.iconbitmap(ico_path)  
         self.resizable(0,0)
         
-        self.grid_columnconfigure((0,1), weight=1)
+        self.grid_columnconfigure((0,1,2), weight=1)
         self.grid_rowconfigure([i for i in range(10)], weight=1)
         
         self.menu = Menu(self)
-        self.menu.grid(row=1, column=0, rowspan=9, sticky='nwes', padx=5, pady=5, columnspan=2)
+        self.menu.grid(row=1, column=0, rowspan=9, sticky='nsew', padx=5, pady=5, columnspan=3)
         
         self.createWidgets()
         
@@ -178,15 +179,24 @@ class Fega(ctk.CTk):
         self.logo = ctk.CTkLabel(self, image=img_logo, text="") if img_logo else ctk.CTkLabel(self, text="FEGApp")
         self.logo.grid(row=0, column=0, padx=10, sticky='wns')
         
-        self.btn_config = ctk.CTkButton(
+        self.btn_config1 = ctk.CTkButton(
             master=self,
-            width=80,
+            width=160,
             text="Image Download",
             font=("Helvetica", 20),
             fg_color="Grey",
             command=self.open_sentinel_app
         )
-        self.btn_config.grid(row=0, column=1, sticky="w", padx=40)
+        self.btn_config1.grid(row=0, column=1, sticky="w", padx=5, pady=5)
+        self.btn_config2 = ctk.CTkButton(
+            master=self,
+            width=160,
+            text="Marker Calculation",
+            font=("Helvetica", 20),
+            fg_color="Grey",
+            command=self.open_marker_app
+        )
+        self.btn_config2.grid(row=0, column=2, sticky="w", padx=5, pady=5)
     
     def open_sentinel_app(self):
         top = ctk.CTkToplevel(self)
@@ -194,6 +204,256 @@ class Fega(ctk.CTk):
         top.geometry("540x350")
         SentinelIndexProcessorApp(top).pack(expand=True, fill="both")
         top.wm_transient(self)
+
+    def open_marker_app(self):
+        top = ctk.CTkToplevel(self)
+        top.title("Marker Calculation")
+        #top.geometry("540x250")
+        MarkerSelectionApp(top).pack(expand=True, fill="both")
+        top.wm_transient(self)
+
+# ----------------------------------------------------------------
+# CLASE PARA SELECCIÓN DE MARCADORES
+# ----------------------------------------------------------------
+
+class MarkerSelectionApp(ctk.CTkFrame):
+    """Ventana secundaria para cálculo de marcadores."""
+    def __init__(self, master):
+        super().__init__(master)
+        self.master = master
+
+        # Variables de entrada
+        self.process_type_var = tk.StringVar(value="Select")
+
+        self.process_options = [
+            #"Calculate spectral indices",
+            #"Calculate markers",
+            #"Download CSVs",
+            "Full process",
+            #"Set parameters",
+            "Full process with separate files (AR, AS1, NDVI, and Dates)"
+            ]
+
+        self.create_widgets()
+
+    def create_widgets(self):
+
+        # Marker Type
+        ctk.CTkLabel(self, text="Action:").grid(row=2, column=0, pady=5, padx=(30,10), sticky="w")
+        ctk.CTkComboBox(self, values=self.process_options, variable=self.process_type_var).grid(row=2, column=1, pady=5, padx=(0,5), sticky="we")
+
+        # Start Button
+        ctk.CTkButton(self, text="Continue", fg_color="blue", command=self.run_marker_process).grid(row=3, column=0, columnspan=3, pady=20)
+
+    def run_marker_process(self):
+        if self.process_type_var.get() == "Select":
+            messagebox.showerror("Error", "Please select process type")
+            return
+        elif self.process_type_var.get() == "Full process with separate files (AR, AS1, NDVI, and Dates)":
+            top = ctk.CTkToplevel(self)
+            top.title("Marker Calculation")
+            #top.geometry("")
+            MarkerCalculationAppSeparate(top).pack(expand=True, fill="both")
+            top.wm_transient(self)
+        elif self.process_type_var.get() == "Full process":
+            top = ctk.CTkToplevel(self)
+            top.title("Marker Calculation")
+            #top.geometry("")
+            MarkerCalculationAppFull(top).pack(expand=True, fill="both")
+            top.wm_transient(self)
+
+# ----------------------------------------------------------------
+# CLASE PARA CÁLCULO DE MARCADORES COMPLETO
+# ----------------------------------------------------------------
+
+class MarkerCalculationAppFull(ctk.CTkFrame):
+    """Ventana secundaria para cálculo de marcadores."""
+    def __init__(self, master):
+        super().__init__(master)
+        self.master = master
+        
+        self.inner = ctk.CTkFrame(self)
+        self.inner.pack(expand=True, fill="both")
+
+        self.asset_var = tk.StringVar()
+        self.output_dir_var = tk.StringVar()
+        self.start_date_var = tk.StringVar()
+        self.end_date_var = tk.StringVar()
+
+        self.create_widgets()
+
+    def create_widgets(self):
+
+        ctk.CTkLabel(self.inner, text="Start Date:").grid(row=0, column=0, pady=(25,5), padx=(30,10), sticky="w")
+        ctk.CTkEntry(self.inner, textvariable=self.start_date_var, width=200).grid(row=0, column=1, pady=(25,5), padx=(0,5))
+        ctk.CTkButton(self.inner, text="📅", command=lambda: self.open_calendar('start')).grid(row=0, column=2, padx=(5,5), pady=(25,5))
+
+        ctk.CTkLabel(self.inner, text="End Date:").grid(row=1, column=0, pady=5, padx=(30,10), sticky="w")
+        ctk.CTkEntry(self.inner, textvariable=self.end_date_var, width=200).grid(row=1, column=1, pady=5, padx=(0,5))
+        ctk.CTkButton(self.inner, text="📅", command=lambda: self.open_calendar('end')).grid(row=1, column=2, padx=5)
+
+        ctk.CTkLabel(self.inner, text="Asset Path:").grid(row=2, column=0, pady=5, padx=(30,10), sticky="w")
+        ctk.CTkEntry(self.inner, textvariable=self.asset_var, width=200).grid(row=2, column=1, pady=5, padx=(0,5))
+        ctk.CTkButton(self.inner, text="📁", command=self.select_asset_file).grid(row=2, column=2, padx=5)
+
+        ctk.CTkLabel(self.inner, text="Output Directory:").grid(row=3, column=0, pady=5, padx=(30,10), sticky="w")
+        ctk.CTkEntry(self.inner, textvariable=self.output_dir_var, width=200).grid(row=3, column=1, pady=5, padx=(0,5))
+        ctk.CTkButton(self.inner, text="📁", command=self.select_output_directory).grid(row=3, column=2, padx=5)
+
+        ctk.CTkButton(self.inner, text="Calculate", fg_color="Blue", command=self.process_data).grid(row=4, column=0, columnspan=3, pady=20)
+
+    def select_asset_file(self):
+        file_path = filedialog.askopenfilename(
+        title="Select asset file",
+        filetypes=[("SHP files", "*.shp"), ("All files", "*.*")]
+        )
+        if file_path:
+            self.asset_var.set(file_path)
+
+
+    def select_output_directory(self):
+        directory = filedialog.askdirectory()
+        if directory:
+            self.output_dir_var.set(directory)
+
+    def open_calendar(self, date_type):
+        """Ejemplo de calendario sencillo para elegir fecha."""
+        top = ctk.CTkToplevel(self)
+        top.title("Select Date")
+        cal_frame = ctk.CTkFrame(top)
+        cal_frame.pack(padx=10, pady=10)
+
+        year = ctk.CTkComboBox(cal_frame, values=list(map(str, range(datetime.now().year, 2015, -1))))
+        year.set(datetime.now().year)
+        year.grid(row=0, column=0, padx=5)
+
+        month = ctk.CTkComboBox(cal_frame, values=[f"{i:02d}" for i in range(1, 13)])
+        month.set(f"{datetime.now().month:02d}")
+        month.grid(row=0, column=1, padx=5)
+
+        day = ctk.CTkComboBox(cal_frame, values=[f"{i:02d}" for i in range(1, 32)])
+        day.set(f"{datetime.now().day:02d}")
+        day.grid(row=0, column=2, padx=5)
+        
+        top.wm_transient(self)
+
+        def set_date():
+            selected_date = f"{year.get()}-{month.get()}-{day.get()}"
+            if date_type == 'start':
+                self.start_date_var.set(selected_date)
+            else:
+                self.end_date_var.set(selected_date)
+            top.destroy()
+
+        ctk.CTkButton(cal_frame, text="Select", command=set_date).grid(row=1, column=1, pady=10)
+
+
+    def process_data(self):
+        try:
+            marcadores_calculo.opcion4(shp_path=self.asset_var.get(), output_dir=self.output_dir_var.get(), start_date=self.start_date_var.get(), end_date=self.end_date_var.get())
+            # Área de salida
+            #self.text_area = tk.Text(self, wrap=tk.WORD, height=10)
+            #self.text_area.pack(expand=True, fill="both", padx=10, pady=10)
+            #self.text_area.insert(tk.END, result + "\n")
+            #self.text_area.see(tk.END)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
+# ----------------------------------------------------------------
+# CLASE PARA CÁLCULO DE MARCADORES POR SEPARADO
+# ----------------------------------------------------------------
+
+class MarkerCalculationAppSeparate(ctk.CTkFrame):
+    """Ventana secundaria para cálculo de marcadores."""
+    def __init__(self, master):
+        super().__init__(master)
+        self.master = master
+        
+        self.inner = ctk.CTkFrame(self)
+        self.inner.pack(expand=True, fill="both")
+
+        self.ar_var = tk.StringVar()
+        self.as1_var = tk.StringVar()
+        self.ndvi_var = tk.StringVar()
+        self.dates_var = tk.StringVar()
+        self.check_set_parameters = tk.BooleanVar(value=False)
+
+
+        self.create_widgets()
+
+    def create_widgets(self):
+
+        ctk.CTkLabel(self.inner, text="AR File:").grid(row=0, column=0, pady=5, padx=(30,10), sticky="w")
+        ctk.CTkEntry(self.inner, textvariable=self.ar_var, width=200).grid(row=0, column=1, pady=5, padx=(0,5))
+        ctk.CTkButton(self.inner, text="📁", command=self.select_ar_file).grid(row=0, column=2, padx=5)
+
+        ctk.CTkLabel(self.inner, text="AS1 File:").grid(row=1, column=0, pady=5, padx=(30,10), sticky="w")
+        ctk.CTkEntry(self.inner, textvariable=self.as1_var, width=200).grid(row=1, column=1, pady=5, padx=(0,5))
+        ctk.CTkButton(self.inner, text="📁", command=self.select_as1_file).grid(row=1, column=2, padx=5)
+
+        ctk.CTkLabel(self.inner, text="NDVI File:").grid(row=2, column=0, pady=5, padx=(30,10), sticky="w")
+        ctk.CTkEntry(self.inner, textvariable=self.ndvi_var, width=200).grid(row=2, column=1, pady=5, padx=(0,5))
+        ctk.CTkButton(self.inner, text="📁", command=self.select_ndvi_file).grid(row=2, column=2, padx=5)
+
+        ctk.CTkLabel(self.inner, text="Dates File:").grid(row=3, column=0, pady=5, padx=(30,10), sticky="w")
+        ctk.CTkEntry(self.inner, textvariable=self.dates_var, width=200).grid(row=3, column=1, pady=5, padx=(0,5))
+        ctk.CTkButton(self.inner, text="📁", command=self.select_dates_file).grid(row=3, column=2, padx=5)
+
+        self.check = ctk.CTkCheckBox(self.inner, text="Set parameters", command=self.set_parameters)
+        self.check.grid(row=4, column=0, pady=5, padx=(30,10), sticky="w")
+
+
+        ctk.CTkButton(self.inner, text="Calculate", fg_color="Blue", command=self.process_data).grid(row=5, column=0, columnspan=3, pady=20)
+
+    def select_ar_file(self):
+        file_path = filedialog.askopenfilename(
+        title="Select AR CSV file",
+        filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if file_path:
+            self.ar_var.set(file_path)
+
+    def select_as1_file(self):
+        file_path = filedialog.askopenfilename(
+        title="Select AS1 CSV file",
+        filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if file_path:
+            self.as1_var.set(file_path)   
+
+    def select_ndvi_file(self):
+        file_path = filedialog.askopenfilename(
+        title="Select NDVI CSV file",
+        filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if file_path:
+            self.ndvi_var.set(file_path)
+
+    def select_dates_file(self):
+        file_path = filedialog.askopenfilename(
+        title="Select Dates CSV file",
+        filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        if file_path:
+            self.dates_var.set(file_path)
+
+    def set_parameters(self):
+        if self.check.get():
+            self.check_set_parameters.set(True)
+        else:
+            self.check_set_parameters.set(False)
+
+
+    def process_data(self):
+        try:
+            marcadores_calculo.opcion6(self.ar_var.get(), self.as1_var.get(), self.ndvi_var.get(), self.dates_var.get(), self.check_set_parameters.get())
+            # Área de salida
+            #self.text_area = tk.Text(self, wrap=tk.WORD, height=10)
+            #self.text_area.pack(expand=True, fill="both", padx=10, pady=10)
+            #self.text_area.insert(tk.END, result)
+            #self.text_area.see(tk.END)
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
 
 # ----------------------------------------------------------------
 # CLASE PARA DESCARGA Y PROCESADO SENTINEL

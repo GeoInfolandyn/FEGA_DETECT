@@ -177,17 +177,19 @@ def __interanualTAM(serie, alldates) -> list:
     """
     import numpy as np
     res = []
-    # n_years = serie.shape[0]//73
-    n_years = alldates[-1].year - alldates[0].year 
-    # repeat the last value to complete the last year
-    while serie.shape[0] % 73 != 0:
-        serie = np.append(serie, serie[-1])
-    series_years = np.array_split(serie, n_years+1) # +1 because the last year is included
-    # for i in range(n_years-1):
-    #     res[row['ID_PASTOS']].append(spectral_angle(series_years[i], series_years[i+1]))
-    for i in range(n_years+1):
-        for j in range(i+1, n_years+1):
+    
+    n_steps_per_year = 73  # número de pasos por año en tu serie
+    n_years = len(serie) // n_steps_per_year
+    serie = serie[:n_years * n_steps_per_year]  # recortar el exceso
+    
+    # Dividir la serie en años
+    series_years = [serie[i*n_steps_per_year:(i+1)*n_steps_per_year] for i in range(n_years)]
+    
+    # Calcular los ángulos temporales
+    for i in range(n_years):
+        for j in range(i+1, n_years):
             res.append(__temporal_angle(series_years[i], series_years[j]))
+    
     return res
 
 
@@ -266,7 +268,8 @@ def process_series(dataframe:pd.DataFrame) -> pd.DataFrame:
     # transform the dates to datetime objects
     dates_sentinel2 = [datetime.datetime.strptime(date, '%Y%m%d') for date in dates_sentinel2]
     # calculate the missing dates from the first date to the last date with a difference of 5 days
-    all_dates = [dates_sentinel2[0] + datetime.timedelta(days=i*5) for i in range((dates_sentinel2[-1] - dates_sentinel2[0]).days//5)]
+    n_steps = (dates_sentinel2[-1] - dates_sentinel2[0]).days // 5 + 1
+    all_dates = [dates_sentinel2[0] + datetime.timedelta(days=i*5) for i in range(n_steps)]
     # check if the dates are 5 days apart
     missing_dates = [date for date in all_dates if date not in dates_sentinel2]
     
